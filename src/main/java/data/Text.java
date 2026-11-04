@@ -1,8 +1,10 @@
 package data;
 
+import java.time.LocalDateTime;
+
 public class Text extends TextEntity {
-    public Text(boolean sendByUser, String text) {
-        super(sendByUser);
+    public Text(boolean sendByUser, String text, LocalDateTime sentTime) {
+        super(sendByUser, sentTime);
         this.content = text;
     }
 

@@ -2,6 +2,7 @@ package data;
 
 import java.time.LocalDate;
 import java.util.Set;
+import java.util.HashSet;
 
 public class Preference {
     public String firstName;
@@ -10,6 +11,10 @@ public class Preference {
     public LocalDate dateOfBirth;
     public int age;
     public String gender; // same as attractedTo
+    public static final String[] ListOfAllInterests = {"Interest"}; // TODO add possible interests that the user
+                                                                    // can choose from (So we have a fixed set of
+                                                                    // interest for algorithm)
+    public String[] Interests;
     public Preference () { //some users might not want to input data, so we default set to null
         firstName = null;
         lastName = null;
@@ -20,4 +25,6 @@ public class Preference {
     }
 
     //TODO add getter setter methods for preferences (user can change preferences/edit profile)
+
+    //TODO add method that allows users to select the interest and record them in Interest
 }

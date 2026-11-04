@@ -6,13 +6,14 @@ public abstract class TextEntity {
                                // who sent the text or if the user received the text
     public LocalDateTime sentTime;
     public String content;
-    TextEntity (boolean sendByUser){
+    TextEntity (boolean sendByUser, LocalDateTime sentTime){
         this.sendByUser = sendByUser;
+        this.sentTime = sentTime;
     }
 
     public abstract String returnContent();
 
     public void timeStampInput (LocalDateTime sentTime){
-        this.sentTime = sentTime; //since we have to save text history, we can't really set the sentTime as current time
+        this.sentTime = sentTime; //backup setter just in case
     }
 }
