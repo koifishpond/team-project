@@ -1,7 +1,5 @@
 package data;
 
-import javax.xml.crypto.Data;
-
 public class Picture extends TextEntity {
 
     public Picture(boolean sendByUser, String pictureReferenceAddress) {
