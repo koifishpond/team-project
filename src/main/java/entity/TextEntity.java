@@ -1,4 +1,4 @@
-package data;
+package entity;
 import java.time.LocalDateTime;
 
 public abstract class TextEntity {

@@ -1,8 +1,7 @@
-package data;
+package entity;
 
 import java.time.LocalDate;
 import java.util.Set;
-import java.util.HashSet;
 
 public class Preference {
     public String firstName;
