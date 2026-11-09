@@ -5,11 +5,13 @@ public class Profile {
     private String username;
     private String password;
     private String email;
+    private String phoneNumber;
     private Preference preferences;
-    public Profile(String username, String password, String email) {
+    public Profile(String username, String password, String email, String phoneNumber) {
         this.username = username;
         this.password = password;
         this.email = email;
+        this.phoneNumber = phoneNumber;
         preferences = new Preference();
     }
 
