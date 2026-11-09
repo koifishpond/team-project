@@ -10,10 +10,11 @@ public class Preference {
     public LocalDate dateOfBirth;
     public int age;
     public String gender; // same as attractedTo
+    public float[] location; // contains Only 2 values representing longitude and latitude to 3 decimal places
     public static final String[] ListOfAllInterests = {"Interest"}; // TODO add possible interests that the user
                                                                     // can choose from (So we have a fixed set of
                                                                     // interest for algorithm)
-    public String[] Interests;
+    public String[] Interests; // maybe use a hash set here depends on who is doing it
     public Preference () { //some users might not want to input data, so we default set to null
         firstName = null;
         lastName = null;
@@ -21,6 +22,7 @@ public class Preference {
         dateOfBirth = null;
         age = -1;
         gender = null;
+        location = new float[2];
     }
 
     //TODO add getter setter methods for preferences (user can change preferences/edit profile)
