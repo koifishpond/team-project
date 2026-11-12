@@ -9,8 +9,7 @@ public class Profile {
     private String phoneNumber;
     private Preference preferences;
     public static int userIDCounter = 100000000; //
-    public Profile(int userID, String username, String password, String email, String phoneNumber)
-            throws InvalidUserIDException {
+    public Profile(int userID, String username, String password, String email, String phoneNumber) {
         this.userID = userID;
         this.username = username;
         this.password = password;
@@ -24,7 +23,7 @@ public class Profile {
             throw new InvalidUserIDException();
         }
     }
-    public Profile (String username, String password, String email, String phoneNumber) throws InvalidUserIDException {
+    public Profile (String username, String password, String email, String phoneNumber) {
         this(userIDCounter + 1, username, password, email, phoneNumber);
     }
 
