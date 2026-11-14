@@ -3,33 +3,34 @@ package data_access;
 import entity.Profile;
 
 public class ProfileDataAccessObject implements ProfileDataAccessInterface {
-    private final Database database;
+    private final ProfileDatabase profileDatabase;
 
-    public ProfileDataAccessObject(Database database) {
-        this.database = database;
+    public ProfileDataAccessObject(ProfileDatabase profileDatabase) {
+        this.profileDatabase = profileDatabase;
     }
 
     @Override
     public Profile getProfile(String username) {
-        // TODO: delegate to the database layer.
-        return database.getProfile(username);
+        return profileDatabase.getProfile(username);
+    }
+
+    @Override
+    public Profile getProfileByUserId(int userId) {
+        return profileDatabase.getProfileByUserId(userId);
     }
 
     @Override
     public void saveProfile(Profile profile) {
-        // TODO: delegate to the database layer.
-        database.saveProfile(profile);
+        profileDatabase.saveProfile(profile);
     }
 
     @Override
     public boolean existsByUsername(String username) {
-        // TODO: check existence through the database.
-        return database.existsByUsername(username);
+        return profileDatabase.existsByUsername(username);
     }
 
     @Override
     public void deleteProfile(String username) {
-        // TODO: remove through the database.
-        database.deleteProfile(username);
+        profileDatabase.deleteProfile(username);
     }
 }

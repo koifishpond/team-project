@@ -17,7 +17,14 @@ public class Preference {
                                                                     // interest for algorithm)
     public String[] interests; // maybe use a hash set here depends on who is doing it
     public String description;
-    public Preference () { //some users might not want to input data, so we default set to null
+    private int userId;
+
+    public Preference() {
+        this(-1);
+    }
+
+    public Preference(int userId) { //some users might not want to input data, so we default set to null
+        this.userId = userId;
         firstName = null;
         lastName = null;
         attractedTo = null;
@@ -29,7 +36,15 @@ public class Preference {
         description = null;
     }
 
-    //TODO add getter setter methods for preferences (user can change preferences/edit profile)
+    public int getUserId() {
+        return userId;
+    }
 
+    public void setUserId(int userId) {
+        this.userId = userId;
+    }
+
+    //TODO add getter setter methods for preferences (user can change preferences/edit profile)
+    //TODO add a Unchecked exception for invalid input (e.g interest is not in the LISTOFALLINTEREST, age is negative, etc.)
     //TODO add method that allows users to select the interest and record them in Interest
 }
