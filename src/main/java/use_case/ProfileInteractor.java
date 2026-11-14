@@ -1,6 +1,7 @@
 package use_case;
 
 import data_access.ProfileDataAccessInterface;
+import entity.InvalidUserIDException;
 import entity.Preference;
 import entity.Profile;
 
@@ -12,7 +13,7 @@ public class ProfileInteractor implements ProfileInputBoundary {
     }
 
     @Override
-    public void execute(ProfileInputData profileInputData) {
+    public void execute(ProfileInputData profileInputData) throws InvalidUserIDException {
         // TODO: validate input and orchestrate the profile creation flow.
         Profile profile = createProfile(
                 profileInputData.getUsername(),
@@ -23,7 +24,8 @@ public class ProfileInteractor implements ProfileInputBoundary {
         profileDataAccess.saveProfile(profile);
     }
 
-    public Profile createProfile(String username, String password, String email, String phoneNumber) {
+    public Profile createProfile(String username, String password, String email, String phoneNumber)
+            throws InvalidUserIDException {
         // TODO: validate user input and create a Profile entity.
         return new Profile(username, password, email, phoneNumber);
     }

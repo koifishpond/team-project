@@ -26,6 +26,11 @@ public class Profile {
         }
         this.userId = userId;
     }
+    public Profile (String username, String password, String email, String phoneNumber) {
+        this(userIDCounter + 1, username, password, email, phoneNumber);
+    }
+
+
 
     public String getUsername() {
         return username;
