@@ -26,9 +26,6 @@ public class Profile {
         }
         this.userId = userId;
     }
-    public Profile (String username, String password, String email, String phoneNumber) {
-        this(userIDCounter + 1, username, password, email, phoneNumber);
-    }
 
 
 
@@ -54,7 +51,7 @@ public class Profile {
 
     public void setUserId(int userId) {
         this.userId = userId;
-    }
+    } // used for debug purposes
 
     //TODO add ways to reset/change password or user id/change email
 }
