@@ -21,7 +21,7 @@ public class Profile {
         if (userId < 100000000 || userId > 999999999){
             throw new InvalidUserIDException();
         }
-        if (userIdCounter < userId){
+        if (userIdCounter > userId){
             throw new InvalidUserIDException();
         }
         this.userId = userId;
