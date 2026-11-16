@@ -1,10 +1,10 @@
 package entity;
 
 public class Profile {
-    private final String username;
-    private final String password;
-    private final String email;
-    private final String phoneNumber;
+    private String username;
+    private String password;
+    private String email;
+    private String phoneNumber;
     private static int userIdCounter = 100000000; // User ID starts from 100000000 to 999999999 to avoid conflicts with other IDs
     private int userId;
 
@@ -53,5 +53,20 @@ public class Profile {
         this.userId = userId;
     } // used for debug purposes
 
-    //TODO add ways to reset/change password or user id/change email
+    public void setUsername(String username) {
+        this.username = username;
+    } // also for debug purposes
+
+    public void setNewEmail(String newEmail) {
+        this.email = newEmail;
+    }
+
+    public void setNewPassword(String newPassword) {
+        this.password = newPassword;
+    }
+
+    public void setNewPhoneNumber(String newPhoneNumber) {
+        this.phoneNumber = newPhoneNumber;
+    }
+
 }

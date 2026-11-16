@@ -13,11 +13,7 @@ public class PreferenceDatabase {
     }
 
     public void savePreference(Preference preference) {
-        if (preference == null) {
-            return;
-        }
-
-        if (preference.getUserId() >= 0) {
+        if (preference != null) {
             preferencesByUserId.put(preference.getUserId(), preference);
         }
     }

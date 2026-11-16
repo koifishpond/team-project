@@ -18,12 +18,8 @@ public class ProfileDatabase {
     }
 
     public void saveProfile(Profile profile) {
-        if (profile == null) {
-            return;
-        }
-
-        profilesByUsername.put(profile.getUsername(), profile);
-        if (profile.getUserId() >= 0) {
+        if (profile != null) {
+            profilesByUsername.put(profile.getUsername(), profile);
             profilesByUserId.put(profile.getUserId(), profile);
         }
     }
@@ -32,9 +28,13 @@ public class ProfileDatabase {
         return profilesByUsername.containsKey(username);
     }
 
+    public boolean existsByUserId(int userId) {
+        return profilesByUserId.containsKey(userId);
+    }
+
     public void deleteProfile(String username) {
         Profile profile = profilesByUsername.remove(username);
-        if (profile != null && profile.getUserId() >= 0) {
+        if (profile != null) {
             profilesByUserId.remove(profile.getUserId());
         }
     }
