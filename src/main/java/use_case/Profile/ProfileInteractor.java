@@ -7,26 +7,42 @@ import entity.Profile;
 
 public class ProfileInteractor implements ProfileInputBoundary {
     private final ProfileDataAccessInterface profileDataAccess;
+    private final ProfileOutputBoundary profileOutputBoundary;
 
-    public ProfileInteractor(ProfileDataAccessInterface profileDataAccess) {
+    public ProfileInteractor(ProfileDataAccessInterface profileDataAccess,
+                             ProfileOutputBoundary profileOutputBoundary) {
         this.profileDataAccess = profileDataAccess;
+        this.profileOutputBoundary = profileOutputBoundary;
     }
 
     @Override
-    public void execute(ProfileInputData profileInputData) throws InvalidUserIDException {
-        // TODO: validate input and orchestrate the profile creation flow.
+    public void execute(ProfileInputData profileInputData) {
+        String username = profileInputData.getUsername();
+        if (username == null || username.trim().isEmpty()) {
+            profileOutputBoundary.prepareFailView("Username cannot be empty.");
+            return;
+        }
+        if (profileDataAccess.existsByUsername(username)) {
+            profileOutputBoundary.prepareFailView("Username already exists.");
+            return;
+        }
+
         Profile profile = createProfile(
-                profileInputData.getUsername(),
-                profileInputData.getPassword(),
-                profileInputData.getEmail(),
-                profileInputData.getPhoneNumber()
-        );
+                    username,
+                    profileInputData.getPassword(),
+                    profileInputData.getEmail(),
+                    profileInputData.getPhoneNumber()
+            );
+        
+
         profileDataAccess.saveProfile(profile);
+        profileOutputBoundary.prepareSuccessView(
+                new ProfileOutputData(true, "Profile created successfully.", profile.getUsername())
+        );
     }
 
     public Profile createProfile(String username, String password, String email, String phoneNumber)
             throws InvalidUserIDException {
-        // TODO: validate user input and create a Profile entity.
         return new Profile(username, password, email, phoneNumber);
     }
 
