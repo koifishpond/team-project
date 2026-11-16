@@ -1,7 +1,7 @@
-package interface_adapter;
+package interface_adapter.Profile;
 
-import use_case.ProfileInputBoundary;
-import use_case.ProfileInputData;
+import use_case.Profile.ProfileInputBoundary;
+import use_case.Profile.ProfileInputData;
 
 public class ProfileController {
     private final ProfileInputBoundary profileInputBoundary;

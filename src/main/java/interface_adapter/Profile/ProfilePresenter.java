@@ -1,7 +1,7 @@
-package interface_adapter;
+package interface_adapter.Profile;
 
-import use_case.ProfileOutputBoundary;
-import use_case.ProfileOutputData;
+import use_case.Profile.ProfileOutputBoundary;
+import use_case.Profile.ProfileOutputData;
 
 public class ProfilePresenter implements ProfileOutputBoundary {
     @Override

@@ -1,6 +1,6 @@
-package use_case;
+package use_case.Profile;
 
-import data_access.ProfileDataAccessInterface;
+import data_access.Profile.ProfileDataAccessInterface;
 import entity.InvalidUserIDException;
 import entity.Preference;
 import entity.Profile;

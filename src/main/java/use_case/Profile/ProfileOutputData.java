@@ -1,4 +1,4 @@
-package use_case;
+package use_case.Profile;
 
 public class ProfileOutputData {
     private final boolean success;

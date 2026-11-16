@@ -1,4 +1,4 @@
-package use_case;
+package use_case.Profile;
 
 import entity.InvalidUserIDException;
 

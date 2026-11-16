@@ -1,5 +1,6 @@
 package data_access;
 
+import data_access.Profile.ProfileDatabase;
 import entity.Preference;
 import entity.Profile;
 import org.junit.jupiter.api.Test;
