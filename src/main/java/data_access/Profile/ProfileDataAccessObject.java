@@ -1,6 +1,7 @@
 package data_access.Profile;
 
 import entity.Profile;
+import use_case.Profile.ProfileDataAccessInterface;
 
 public class ProfileDataAccessObject implements ProfileDataAccessInterface {
     private final ProfileDatabase profileDatabase;

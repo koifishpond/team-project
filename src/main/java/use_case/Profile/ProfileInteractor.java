@@ -1,6 +1,5 @@
 package use_case.Profile;
 
-import data_access.Profile.ProfileDataAccessInterface;
 import entity.InvalidUserIDException;
 import entity.Preference;
 import entity.Profile;
@@ -54,13 +53,5 @@ public class ProfileInteractor implements ProfileInputBoundary {
     public void saveProfile(Profile profile) {
         // TODO: persist the profile using the DAO interface.
         profileDataAccess.saveProfile(profile);
-    }
-
-    public void updatePreferences(String username, Preference preferences) {
-        // TODO: load existing profile, assign preferences, and save changes.
-        Profile profile = profileDataAccess.getProfile(username);
-        if (profile != null) {
-            // the real logic would update profile.getPreferences() here once those methods exist
-        }
     }
 }

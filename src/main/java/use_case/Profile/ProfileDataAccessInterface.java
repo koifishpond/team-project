@@ -1,4 +1,4 @@
-package data_access.Profile;
+package use_case.Profile;
 
 import entity.Profile;
 

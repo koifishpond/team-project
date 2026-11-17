@@ -1,12 +1,12 @@
 package entity;
 
 public class Profile {
-    private String username;
+    private final String username;
     private String password;
     private String email;
     private String phoneNumber;
     private static int userIdCounter = 100000000; // User ID starts from 100000000 to 999999999 to avoid conflicts with other IDs
-    private int userId;
+    private final int userId;
 
     public Profile(String username, String password, String email, String phoneNumber) {
         this(username, password, email, phoneNumber, userIdCounter);
@@ -48,14 +48,6 @@ public class Profile {
     public int getUserId() {
         return userId;
     }
-
-    public void setUserId(int userId) {
-        this.userId = userId;
-    } // used for debug purposes
-
-    public void setUsername(String username) {
-        this.username = username;
-    } // also for debug purposes
 
     public void setNewEmail(String newEmail) {
         this.email = newEmail;
