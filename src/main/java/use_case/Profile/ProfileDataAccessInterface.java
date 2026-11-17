@@ -2,10 +2,14 @@ package use_case.Profile;
 
 import entity.Profile;
 
+import java.util.List;
+
 public interface ProfileDataAccessInterface {
     Profile getProfile(String username);
 
     Profile getProfileByUserId(int userId);
+
+    List<Profile> getAllProfiles();
 
     void saveProfile(Profile profile);
 

@@ -3,6 +3,8 @@ package data_access.Profile;
 import entity.Profile;
 import use_case.Profile.ProfileDataAccessInterface;
 
+import java.util.List;
+
 public class ProfileDataAccessObject implements ProfileDataAccessInterface {
     private final ProfileDatabase profileDatabase;
 
@@ -18,6 +20,11 @@ public class ProfileDataAccessObject implements ProfileDataAccessInterface {
     @Override
     public Profile getProfileByUserId(int userId) {
         return profileDatabase.getProfileByUserId(userId);
+    }
+
+    @Override
+    public List<Profile> getAllProfiles() {
+        return profileDatabase.getAllProfiles();
     }
 
     @Override

@@ -46,8 +46,6 @@ public class Profile {
         nextUserId = userId + 1;
     }
 
-
-
     public String getUsername() {
         return username;
     }
@@ -79,5 +77,4 @@ public class Profile {
     public void setNewPhoneNumber(String newPhoneNumber) {
         this.phoneNumber = newPhoneNumber;
     }
-
 }

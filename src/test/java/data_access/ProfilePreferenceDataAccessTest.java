@@ -1,13 +1,24 @@
 package data_access;
 
+import java.io.IOException;
+import java.nio.file.Path;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import data_access.Profile.ProfileDatabase;
+import data_access.Profile.ProfileDataAccessObject;
+import data_access.Profile.ProfileJsonFileStorage;
 import entity.Preference;
 import entity.Profile;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ProfilePreferenceDataAccessTest {
+
+    @TempDir
+    Path temporaryDirectory;
 
     @Test
     void profileDatabaseStoresProfilesByUsernameAndUserId() {
@@ -38,6 +49,33 @@ class ProfilePreferenceDataAccessTest {
         assertSame(existingProfile, profileDatabase.getProfile("alice"));
         assertSame(existingProfile, profileDatabase.getProfileByUserId(existingProfile.getUserId()));
         assertNull(profileDatabase.getProfileByUserId(conflictingProfile.getUserId()));
+    }
+
+    @Test
+    void writesAllProfilesToJsonFile() throws IOException {
+        ProfileDatabase profileDatabase = new ProfileDatabase();
+        profileDatabase.saveProfile(new Profile("alice", "pw", "alice@example.com", "555-1234"));
+        profileDatabase.saveProfile(new Profile("bob", "pw", "bob@example.com", "555-5678"));
+        ProfileJsonFileStorage jsonStorage = new ProfileJsonFileStorage(
+                new ProfileDataAccessObject(profileDatabase));
+        Path destination = temporaryDirectory.resolve("backup/profiles.json");
+
+        jsonStorage.saveAllProfilesToJson(destination);
+
+        JsonNode profiles = new ObjectMapper().readTree(destination.toFile());
+        assertTrue(profiles.isArray());
+        assertEquals(2, profiles.size());
+        assertTrue(containsUsername(profiles, "alice"));
+        assertTrue(containsUsername(profiles, "bob"));
+    }
+
+    private boolean containsUsername(JsonNode profiles, String username) {
+        for (JsonNode profile : profiles) {
+            if (username.equals(profile.get("username").asText())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Test
