@@ -5,26 +5,45 @@ public class Profile {
     private String password;
     private String email;
     private String phoneNumber;
-    private static int userIdCounter = 100000000; // User ID starts from 100000000 to 999999999 to avoid conflicts with other IDs
+    private static int nextUserId = 100000000;
     private final int userId;
 
     public Profile(String username, String password, String email, String phoneNumber) {
-        this(username, password, email, phoneNumber, userIdCounter);
-        userIdCounter++;
+        this(username, password, email, phoneNumber, nextGeneratedUserId(), true);
     }
 
     public Profile(String username, String password, String email, String phoneNumber, int userId) {
+        this(username, password, email, phoneNumber, userId, false);
+    }
+
+    private Profile(String username, String password, String email, String phoneNumber,
+                    int userId, boolean generatedId) {
+        if (userId < 100000000 || userId > 999999999) {
+            throw new InvalidUserIDException();
+        }
+        if (!generatedId) {
+            reserveUserId(userId);
+        }
+
         this.username = username;
         this.password = password;
         this.email = email;
         this.phoneNumber = phoneNumber;
-        if (userId < 100000000 || userId > 999999999){
-            throw new InvalidUserIDException();
-        }
-        if (userIdCounter > userId){
-            throw new InvalidUserIDException();
-        }
         this.userId = userId;
+    }
+
+    private static int nextGeneratedUserId() {
+        if (nextUserId > 999999999) {
+            throw new InvalidUserIDException();
+        }
+        return nextUserId++;
+    }
+
+    private static void reserveUserId(int userId) {
+        if (userId < nextUserId) {
+            throw new InvalidUserIDException();
+        }
+        nextUserId = userId + 1;
     }
 
 

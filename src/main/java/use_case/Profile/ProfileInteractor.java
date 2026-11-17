@@ -1,7 +1,6 @@
 package use_case.Profile;
 
 import entity.InvalidUserIDException;
-import entity.Preference;
 import entity.Profile;
 
 public class ProfileInteractor implements ProfileInputBoundary {
@@ -26,18 +25,21 @@ public class ProfileInteractor implements ProfileInputBoundary {
             return;
         }
 
-        Profile profile = createProfile(
+        try {
+            Profile profile = createProfile(
                     username,
                     profileInputData.getPassword(),
                     profileInputData.getEmail(),
                     profileInputData.getPhoneNumber()
             );
-        
 
-        profileDataAccess.saveProfile(profile);
-        profileOutputBoundary.prepareSuccessView(
+            profileDataAccess.saveProfile(profile);
+            profileOutputBoundary.prepareSuccessView(
                 new ProfileOutputData(true, "Profile created successfully.", profile.getUsername())
-        );
+            );
+        } catch (InvalidUserIDException | IllegalArgumentException exception) {
+            profileOutputBoundary.prepareFailView(exception.getMessage());
+        }
     }
 
     public Profile createProfile(String username, String password, String email, String phoneNumber)

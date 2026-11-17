@@ -5,6 +5,7 @@ import data_access.Profile.ProfileDatabase;
 import entity.Profile;
 import interface_adapter.Profile.ProfileController;
 import interface_adapter.Profile.ProfilePresenter;
+import interface_adapter.Profile.ProfileViewModel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +15,8 @@ class ProfileCreationTest {
     @Test
     void controllerCreatesAndPersistsProfile() {
         ProfileDatabase database = new ProfileDatabase();
-        ProfilePresenter presenter = new ProfilePresenter();
+        ProfileViewModel viewModel = new ProfileViewModel();
+        ProfilePresenter presenter = new ProfilePresenter(viewModel);
         ProfileInteractor interactor = new ProfileInteractor(
                 new ProfileDataAccessObject(database), presenter);
         ProfileController controller = new ProfileController(interactor);
@@ -24,8 +26,8 @@ class ProfileCreationTest {
         Profile savedProfile = database.getProfile("alice");
         assertNotNull(savedProfile);
         assertEquals("alice", savedProfile.getUsername());
-        assertTrue(presenter.getOutputData().isSuccess());
-        assertEquals("alice", presenter.getOutputData().getUsername());
+        assertTrue(viewModel.getState().isSuccess());
+        assertEquals("alice", viewModel.getState().getUsername());
     }
 
     @Test
@@ -33,7 +35,8 @@ class ProfileCreationTest {
         ProfileDatabase database = new ProfileDatabase();
         Profile existingProfile = new Profile("alice", "old-secret", "alice@example.com", "555-1234");
         database.saveProfile(existingProfile);
-        ProfilePresenter presenter = new ProfilePresenter();
+        ProfileViewModel viewModel = new ProfileViewModel();
+        ProfilePresenter presenter = new ProfilePresenter(viewModel);
         ProfileInteractor interactor = new ProfileInteractor(
                 new ProfileDataAccessObject(database), presenter);
         ProfileController controller = new ProfileController(interactor);
@@ -41,14 +44,15 @@ class ProfileCreationTest {
         controller.createProfile("alice", "new-secret", "other@example.com", "555-9876");
 
         assertSame(existingProfile, database.getProfile("alice"));
-        assertFalse(presenter.getOutputData().isSuccess());
-        assertEquals("Username already exists.", presenter.getOutputData().getMessage());
+        assertFalse(viewModel.getState().isSuccess());
+        assertEquals("Username already exists.", viewModel.getState().getMessage());
     }
 
     @Test
     void blankUsernameIsRejected() {
         ProfileDatabase database = new ProfileDatabase();
-        ProfilePresenter presenter = new ProfilePresenter();
+        ProfileViewModel viewModel = new ProfileViewModel();
+        ProfilePresenter presenter = new ProfilePresenter(viewModel);
         ProfileInteractor interactor = new ProfileInteractor(
                 new ProfileDataAccessObject(database), presenter);
         ProfileController controller = new ProfileController(interactor);
@@ -56,7 +60,7 @@ class ProfileCreationTest {
         controller.createProfile("  ", "secret", "alice@example.com", "555-1234");
 
         assertNull(database.getProfile("  "));
-        assertFalse(presenter.getOutputData().isSuccess());
-        assertEquals("Username cannot be empty.", presenter.getOutputData().getMessage());
+        assertFalse(viewModel.getState().isSuccess());
+        assertEquals("Username cannot be empty.", viewModel.getState().getMessage());
     }
 }
