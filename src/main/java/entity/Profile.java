@@ -46,6 +46,14 @@ public class Profile {
         nextUserId = userId + 1;
     }
 
+    //Bypasses the NextUserID detection as profile was exported from a unorder hasmap and there was no effiecient way to get the next user id. This method is used for restoring profiles from a database.
+    public static Profile restore(String username, String password, String email,
+                                               String phoneNumber, int userId) { 
+        Profile profile = new Profile(username, password, email, phoneNumber, userId, true);
+        nextUserId = Math.max(nextUserId, userId + 1);
+        return profile;
+    }
+
     public String getUsername() {
         return username;
     }

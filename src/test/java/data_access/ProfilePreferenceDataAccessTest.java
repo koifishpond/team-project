@@ -69,6 +69,42 @@ class ProfilePreferenceDataAccessTest {
         assertTrue(containsUsername(profiles, "bob"));
     }
 
+    @Test
+    void loadsProfilesFromJsonIntoFreshDatabase() throws IOException {
+        ProfileDatabase savedDatabase = new ProfileDatabase();
+        Profile savedAlice = new Profile("saved-alice", "pw", "alice@example.com", "555-1234");
+        Profile savedBob = new Profile("saved-bob", "pw", "bob@example.com", "555-5678");
+        savedDatabase.saveProfile(savedAlice);
+        savedDatabase.saveProfile(savedBob);
+        Path saveFile = temporaryDirectory.resolve("profiles.json");
+        ProfileJsonFileStorage saveStorage = new ProfileJsonFileStorage(
+                new ProfileDataAccessObject(savedDatabase));
+        saveStorage.saveAllProfilesToJson(saveFile);
+
+        ProfileDatabase loadedDatabase = new ProfileDatabase();
+        ProfileJsonFileStorage loadStorage = new ProfileJsonFileStorage(
+                new ProfileDataAccessObject(loadedDatabase));
+        loadStorage.loadProfilesFromJson(saveFile);
+
+        Profile loadedAlice = loadedDatabase.getProfile("saved-alice");
+        assertNotNull(loadedAlice);
+        assertEquals(savedAlice.getUserId(), loadedAlice.getUserId());
+        assertEquals(savedAlice.getEmail(), loadedAlice.getEmail());
+        assertSame(loadedAlice, loadedDatabase.getProfileByUserId(savedAlice.getUserId()));
+        assertNotNull(loadedDatabase.getProfile("saved-bob"));
+    }
+
+    @Test
+    void missingProfileSaveFileLeavesDatabaseEmpty() throws IOException {
+        ProfileDatabase profileDatabase = new ProfileDatabase();
+        ProfileJsonFileStorage jsonStorage = new ProfileJsonFileStorage(
+                new ProfileDataAccessObject(profileDatabase));
+
+        jsonStorage.loadProfilesFromJson(temporaryDirectory.resolve("missing.json"));
+
+        assertTrue(profileDatabase.getAllProfiles().isEmpty());
+    }
+
     private boolean containsUsername(JsonNode profiles, String username) {
         for (JsonNode profile : profiles) {
             if (username.equals(profile.get("username").asText())) {
