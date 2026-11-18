@@ -38,6 +38,16 @@ public class ProfileDataAccessObject implements ProfileDataAccessInterface {
     }
 
     @Override
+    public boolean existsByEmail(String email) {
+        return profileDatabase.existsByEmail(email);
+    }
+
+    @Override
+    public boolean existsByPhoneNumber(String phoneNumber) {
+        return profileDatabase.existsByPhoneNumber(phoneNumber);
+    }
+
+    @Override
     public void deleteProfile(String username) {
         profileDatabase.deleteProfile(username);
     }

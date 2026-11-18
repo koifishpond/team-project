@@ -24,6 +24,14 @@ public class ProfileInteractor implements ProfileInputBoundary {
             profileOutputBoundary.prepareFailView("Username already exists.");
             return;
         }
+        if (profileDataAccess.existsByEmail(profileInputData.getEmail())) {
+            profileOutputBoundary.prepareFailView("Email already exists.");
+            return;
+        }
+        if (profileDataAccess.existsByPhoneNumber(profileInputData.getPhoneNumber())) {
+            profileOutputBoundary.prepareFailView("Phone number already exists.");
+            return;
+        }
 
         try {
             Profile profile = createProfile(

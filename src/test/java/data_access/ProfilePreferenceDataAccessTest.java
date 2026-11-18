@@ -52,6 +52,23 @@ class ProfilePreferenceDataAccessTest {
     }
 
     @Test
+    void profileDatabaseRejectsDuplicateEmailAndPhoneNumber() {
+        ProfileDatabase profileDatabase = new ProfileDatabase();
+        Profile existingProfile = new Profile("alice", "pw", "alice@example.com", "555-1234");
+        profileDatabase.saveProfile(existingProfile);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> profileDatabase.saveProfile(
+                        new Profile("bob", "pw", "ALICE@example.com", "555-9876")));
+        assertThrows(IllegalArgumentException.class,
+                () -> profileDatabase.saveProfile(
+                        new Profile("carol", "pw", "carol@example.com", "(555) 1234")));
+
+        assertEquals(1, profileDatabase.getAllProfiles().size());
+        assertSame(existingProfile, profileDatabase.getProfile("alice"));
+    }
+
+    @Test
     void writesAllProfilesToJsonFile() throws IOException {
         ProfileDatabase profileDatabase = new ProfileDatabase();
         profileDatabase.saveProfile(new Profile("alice", "pw", "alice@example.com", "555-1234"));
