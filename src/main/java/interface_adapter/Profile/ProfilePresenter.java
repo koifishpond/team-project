@@ -4,13 +4,19 @@ import use_case.Profile.ProfileOutputBoundary;
 import use_case.Profile.ProfileOutputData;
 
 public class ProfilePresenter implements ProfileOutputBoundary {
+    private final ProfileViewModel profileViewModel;
+
+    public ProfilePresenter(ProfileViewModel profileViewModel) {
+        this.profileViewModel = profileViewModel;
+    }
+
     @Override
     public void prepareSuccessView(ProfileOutputData profileOutputData) {
-        // TODO: format the successful result for the view.
+        profileViewModel.setState(true, profileOutputData.getMessage(), profileOutputData.getUsername());
     }
 
     @Override
     public void prepareFailView(String errorMessage) {
-        // TODO: format the failure result for the view.
+        profileViewModel.setState(false, errorMessage, null);
     }
 }
