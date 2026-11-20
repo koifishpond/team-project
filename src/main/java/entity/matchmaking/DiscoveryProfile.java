@@ -23,7 +23,8 @@ public final class DiscoveryProfile {
     public ProfileFields getFields() { return fields; }
     public MatchingProfile matchingOn(LocalDate date) {
         return new MatchingProfile(profileId, profileRevision, discoveryStatus, fields.publicationErrors(date).isEmpty(),
-                fields.ageOn(date), fields.getGender(), fields.getLocationArea(), fields.getInterestTags(), fields.getPreferences());
+                fields.ageOn(date), fields.getGender(), fields.getLocationArea(), fields.getInterestTags(),
+                fields.getRelationshipIntent(), fields.getSmoking(), fields.getDrinking(), fields.getPreferences());
     }
     public PublicProfileSummary publicOn(LocalDate date) {
         return new PublicProfileSummary(profileId, profileRevision, fields.getDisplayName().orElseThrow(),

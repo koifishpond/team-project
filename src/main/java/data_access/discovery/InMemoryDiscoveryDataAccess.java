@@ -7,12 +7,15 @@ import java.util.*;
 import static use_case.discovery.ProfileCommitResult.Status.*;
 
 /** Local fixtures only. One monitor protects profiles, photo ownership, pair facts and feed revision. */
-public final class InMemoryDiscoveryDataAccess implements ViewerSessionDataAccessInterface, DiscoveryDataAccessInterface {
+public final class InMemoryDiscoveryDataAccess implements ViewerSessionDataAccessInterface, DiscoveryDataAccessInterface,
+        FeedbackDataAccessInterface {
     public enum Operation { SAVE, PUBLISH, PAUSE, RESUME }
     private final Map<ProfileId, DiscoveryProfile> profiles = new LinkedHashMap<>();
     private final Map<UUID, ResolvedViewer> sessions = new HashMap<>();
     private final Map<UUID, ProfileId> photoOwners = new HashMap<>();
     private final Map<List<Object>, PairState> pairs = new HashMap<>();
+    private final Map<ProfileId, FeedbackHistory> feedback = new HashMap<>();
+    private final Map<UUID, Map<ProfileId, UUID>> confirmedMatches = new HashMap<>();
     private final Clock clock;
     private long feedRevision = 1;
     private boolean available = true;
@@ -38,6 +41,54 @@ public final class InMemoryDiscoveryDataAccess implements ViewerSessionDataAcces
         return List.of(viewer.getViewerId(), candidate, viewer.getDiscoverySessionId());
     }
     public synchronized long getFeedRevision() { return feedRevision; }
+
+    /** Trusted demo/test driver records what it actually showed as a separate step from selection. */
+    public synchronized boolean captureExposure(UUID token, UUID exposureId, SelectedCandidateData displayed, Set<String> shown) {
+        ResolvedViewer viewer = sessions.get(token);
+        if (!available || viewer == null) return false;
+        LocalDate date = LocalDate.now(clock);
+        if (displayed.getFeedRevision() != feedRevision || !displayed.getEffectiveDate().equals(date)) return false;
+        Optional<DiscoverySnapshot> read = load(viewer, date).getSnapshot();
+        if (read.isEmpty()) return false;
+        MatchingProfile viewerProfile = read.get().getViewer();
+        EligibilityPolicy eligibility = new EligibilityPolicy();
+        for (CandidateSnapshot candidate : read.get().getCandidates()) {
+            MatchingProfile profile = candidate.getProfile();
+            if (!profile.getProfileId().equals(displayed.getProfileId())) continue;
+            if (profile.getProfileRevision() != displayed.getProfileRevision()) return false;
+            OptionalInt distance = eligibility.distance(viewerProfile, profile);
+            if (!eligibility.eligible(viewerProfile, profile, candidate.getPairState(), distance)) return false;
+            FeedbackExposure exposure = new FeedbackExposure(exposureId, profile.getProfileId(),
+                    DiscoveryFeatures.candidate(profile, distance), shown);
+            return feedback.computeIfAbsent(viewer.getViewerId(), id -> new FeedbackHistory()).capture(viewer, exposure);
+        }
+        return false;
+    }
+
+    /** The trusted fixture backend supplies a match-to-like link independently of the feedback input. */
+    public synchronized boolean registerConfirmedMatch(UUID matchId, ProfileId viewer, UUID likeId) {
+        Objects.requireNonNull(matchId);
+        Objects.requireNonNull(viewer);
+        Objects.requireNonNull(likeId);
+        if (!profiles.containsKey(viewer)) return false;
+        UUID existing = confirmedMatches.computeIfAbsent(matchId, id -> new HashMap<>()).putIfAbsent(viewer, likeId);
+        return existing == null || existing.equals(likeId);
+    }
+
+    @Override public synchronized FeedbackResult applyFeedback(UUID token, FeedbackEvent event) {
+        if (!available) return FeedbackResult.RETRYABLE_FAILURE;
+        ResolvedViewer viewer = sessions.get(token);
+        if (viewer == null) return FeedbackResult.SESSION_EXPIRED;
+        if (event.isConfirmedMatch() && !event.likeId().equals(
+                confirmedMatches.getOrDefault(event.matchId(), Map.of()).get(viewer.getViewerId()))) {
+            return FeedbackResult.REJECTED;
+        }
+        FeedbackHistory history = feedback.get(viewer.getViewerId());
+        if (history == null) return FeedbackResult.REJECTED;
+        FeedbackResult result = history.apply(viewer, event);
+        if (result == FeedbackResult.APPLIED) feedRevision = Math.incrementExact(feedRevision);
+        return result;
+    }
 
     @Override public synchronized SessionReadResult resolve(UUID token) {
         Objects.requireNonNull(token);
@@ -125,6 +176,10 @@ public final class InMemoryDiscoveryDataAccess implements ViewerSessionDataAcces
             PairState pair = pairs.get(pairKey(viewer, profile.getProfileId()));
             candidates.add(new CandidateSnapshot(profile.matchingOn(effectiveDate), profile.publicOn(effectiveDate), pair));
         }
-        return new DiscoverySnapshot(feedRevision, 1, effectiveDate, storedViewer.matchingOn(effectiveDate), candidates);
+        MatchingProfile matchingViewer = storedViewer.matchingOn(effectiveDate);
+        FeedbackHistory history = feedback.get(viewer.getViewerId());
+        ViewerPreferenceVector preferences = DiscoveryFeatures.preferences(matchingViewer.getPreferences(),
+                history == null ? Map.of() : history.affinities());
+        return new DiscoverySnapshot(feedRevision, 1, effectiveDate, matchingViewer, candidates, preferences);
     }
 }

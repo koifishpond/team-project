@@ -1,27 +1,27 @@
 package use_case.discovery;
 
-import entity.matchmaking.*;
-import java.util.*;
+import entity.matchmaking.CandidateAttributeVector;
+import entity.matchmaking.ViewerPreferenceVector;
 
-/** Fixed v1 viewer-direction kernel. Candidate preferences never enter the score. */
+/** Directional masked dot product normalized by the viewer's maximum feature budget. */
 public final class ViewerScorer {
-    public double score(MatchingProfile viewer, MatchingProfile candidate, OptionalInt distanceMetres) {
-        if (distanceMetres.isPresent() && distanceMetres.getAsInt() < 0) throw new IllegalArgumentException("Distance");
-        PartnerPreferences p = viewer.getPreferences();
-        Set<InterestTag> preferred = p.getPreferredInterestTags();
-        double interests = 0.5, distance = 0.5, age = 0.5;
-        if (!preferred.isEmpty() && candidate.getInterestTags().isPresent()) {
-            long common = candidate.getInterestTags().get().stream().filter(preferred::contains).count();
-            interests = common / (double) preferred.size();
+    public double score(ViewerPreferenceVector viewer, CandidateAttributeVector candidate) {
+        DiscoveryFeatures.requireCurrent(viewer.version(), viewer.dimension());
+        DiscoveryFeatures.requireCurrent(candidate.version(), candidate.dimension());
+        double dot = 0;
+        double[] budgets = new double[DiscoveryFeatures.Group.values().length];
+        for (int i = 0; i < viewer.dimension(); i++) {
+            double affinity = viewer.affinityAt(i);
+            if (candidate.isKnown(i)) dot += affinity * candidate.valueAt(i);
+            DiscoveryFeatures.Group group = DiscoveryFeatures.groupAt(i);
+            int index = group.ordinal();
+            // Interests can co-occur. Other groups activate at most one coordinate.
+            if (group == DiscoveryFeatures.Group.INTEREST) budgets[index] += Math.abs(affinity);
+            else budgets[index] = Math.max(budgets[index], Math.abs(affinity));
         }
-        if (p.getDistancePreference().isPresent() && distanceMetres.isPresent())
-            distance = Math.max(0, 1 - distanceMetres.getAsInt() / (p.getDistancePreference().get().getMaxKm() * 1000.0));
-        if (p.getAgePreference().isPresent() && candidate.getAgeYears().isPresent()) {
-            AgePreference range = p.getAgePreference().get();
-            int years = candidate.getAgeYears().getAsInt();
-            int outside = Math.max(0, Math.max(range.getMinYears() - years, years - range.getMaxYears()));
-            age = Math.max(0, 1 - outside / 10.0);
-        }
-        return 0.60 * interests + 0.25 * distance + 0.15 * age;
+        double budget = 0;
+        for (double value : budgets) budget += value;
+        double similarity = dot / Math.max(1, budget);
+        return 0.5 + 0.5 * Math.max(-1, Math.min(1, similarity));
     }
 }

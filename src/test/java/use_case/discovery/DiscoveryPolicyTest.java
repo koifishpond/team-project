@@ -29,7 +29,8 @@ class DiscoveryPolicyTest {
         viewer.maxKm=10; viewer.distanceMode="SOFT";
         ProfileFields.Input candidate = fields(27); candidate.interestTags=List.of("ART");
         MatchingProfile v = profile(100000001,viewer), c = profile(100000002,candidate);
-        assertEquals(1, scorer.score(v,c,OptionalInt.of(0)),1e-12);
+        assertEquals(1, scorer.score(DiscoveryFeatures.preferences(v.getPreferences()),
+                DiscoveryFeatures.candidate(c,OptionalInt.of(0))),1e-12);
         assertFalse(policy.eligible(v,c,pair,OptionalInt.of(0)));
     }
     @Test void selfInactiveAndUnpublishedProfilesExcludedInBothDirections() {
@@ -75,37 +76,6 @@ class DiscoveryPolicyTest {
         MatchingProfile x=profile(100000001,a), y=profile(100000002,b);
         assertEquals(expected, reverse ? policy.eligible(y,x,PairState.clear(),metres) : policy.eligible(x,y,PairState.clear(),metres));
     }
-    @Test void workedScoreAndHigherInterestFit() {
-        ProfileFields.Input v=fields(27); v.preferredInterestTags=List.of("HIKING","BOOKS");
-        v.maxKm=20; v.distanceMode="SOFT"; v.minYears=25; v.maxYears=35; v.ageMode="SOFT";
-        ProfileFields.Input c=fields(37); c.interestTags=List.of("HIKING");
-        double first=scorer.score(profile(100000001,v),profile(100000002,c),OptionalInt.of(5000));
-        assertEquals(0.6075,first,1e-12);
-        c.interestTags=List.of("HIKING","BOOKS");
-        assertEquals(0.9075,scorer.score(profile(100000001,v),profile(100000002,c),OptionalInt.of(5000)),1e-12);
-    }
-    @Test void viewerPreferencesReverseRankingAndCandidateSoftPreferencesDoNotMatter() {
-        ProfileFields.Input v=fields(27), a=fields(27), b=fields(27);
-        a.interestTags=List.of("ART"); b.interestTags=List.of("BOOKS");
-        v.preferredInterestTags=List.of("ART");
-        assertTrue(score(v,a)>score(v,b));
-        v.preferredInterestTags=List.of("BOOKS"); assertTrue(score(v,a)<score(v,b));
-        double before=score(v,a); a.preferredInterestTags=List.of("SPORTS"); a.minYears=100; a.maxYears=120; a.ageMode="SOFT";
-        a.maxKm=1; a.distanceMode="SOFT"; assertEquals(before,score(v,a));
-    }
-    private double score(ProfileFields.Input v, ProfileFields.Input c) { return scorer.score(profile(100000001,v),profile(100000002,c),OptionalInt.empty()); }
-    @Test void missingAndEmptyDataRetainAllWeights() {
-        ProfileFields.Input v=fields(27), c=fields(27);
-        assertEquals(0.5,score(v,c),1e-12);
-        v.preferredInterestTags=List.of("HIKING"); assertEquals(0.5,score(v,c),1e-12);
-        c.interestTags=List.of(); assertEquals(0.2,score(v,c),1e-12);
-        c.interestTags=List.of("HIKING"); assertEquals(0.8,score(v,c),1e-12);
-        v.preferredInterestTags=List.of(); assertEquals(0.5,score(v,c),1e-12);
-        v.maxKm=1; v.distanceMode="SOFT"; v.minYears=18; v.maxYears=20; v.ageMode="SOFT";
-        assertEquals(0.5,scorer.score(profile(100000001,v), new MatchingProfile(new ProfileId(100000002),1,
-                DiscoveryStatus.DRAFT,false,OptionalInt.empty(),Optional.empty(),Optional.empty(),Optional.empty(),
-                new PartnerPreferences(AudienceMode.UNSET,Set.of(),Set.of(),null,null)),OptionalInt.empty()),1e-12);
-    }
     @Test void distanceUsesRoundedHaversineAndCatalogCoordinates() {
         assertEquals(0,GeoDistance.between(LocationArea.TORONTO,LocationArea.TORONTO));
         assertEquals(21967,GeoDistance.between(LocationArea.TORONTO,LocationArea.MISSISSAUGA));
@@ -119,7 +89,7 @@ class DiscoveryPolicyTest {
     void invalidCoordinatesRejected(double coordinate) { assertThrows(IllegalArgumentException.class,()->GeoDistance.metres(0,coordinate,0,0)); }
     @Test void latitudeAndNegativeDistanceAreRejected() {
         assertThrows(IllegalArgumentException.class,()->GeoDistance.metres(91,0,0,0));
-        assertThrows(IllegalArgumentException.class,()->scorer.score(plain(100000001),plain(100000002),OptionalInt.of(-1)));
+        assertThrows(IllegalArgumentException.class,()->DiscoveryFeatures.candidate(plain(100000002),OptionalInt.of(-1)));
         assertThrows(IllegalArgumentException.class,()->policy.eligible(plain(100000001),plain(100000002),PairState.clear(),OptionalInt.of(-1)));
     }
 }

@@ -47,7 +47,8 @@ public final class NextPreviewInteractor implements NextPreviewInputBoundary {
             MatchingProfile profile = candidate.getProfile();
             OptionalInt distance = eligibility.distance(viewer, profile);
             if (!eligibility.eligible(viewer, profile, candidate.getPairState(), distance)) continue;
-            double score = scorer.score(viewer, profile, distance);
+            CandidateAttributeVector attributes = DiscoveryFeatures.candidate(profile, distance);
+            double score = scorer.score(snapshot.getViewerPreferences(), attributes);
             if (best == null || Double.compare(score, bestScore) > 0 || (Double.compare(score, bestScore) == 0
                     && profile.getProfileId().compareTo(best.getProfile().getProfileId()) < 0)) {
                 best = candidate; bestScore = score; bestDistance = distance;
