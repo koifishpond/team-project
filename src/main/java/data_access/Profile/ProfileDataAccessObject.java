@@ -1,11 +1,12 @@
 package data_access.Profile;
 
 import entity.Profile;
+import use_case.Login.LoginDataAccessInterface;
 import use_case.Profile.ProfileDataAccessInterface;
 
 import java.util.List;
 
-public class ProfileDataAccessObject implements ProfileDataAccessInterface {
+public class ProfileDataAccessObject implements ProfileDataAccessInterface, LoginDataAccessInterface {
     private final ProfileDatabase profileDatabase;
 
     public ProfileDataAccessObject(ProfileDatabase profileDatabase) {
@@ -14,6 +15,11 @@ public class ProfileDataAccessObject implements ProfileDataAccessInterface {
 
     @Override
     public Profile getProfile(String username) {
+        return profileDatabase.getProfile(username);
+    }
+
+    @Override
+    public Profile getProfileByUsername(String username) {
         return profileDatabase.getProfile(username);
     }
 
