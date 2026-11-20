@@ -39,4 +39,5 @@ public final class SelectedCandidateData {
     public OptionalInt getDistanceMetres() { return distanceMetres; }
     public Optional<String> getBioExcerpt() { return bioExcerpt; }
     public List<InterestTag> getPreviewInterestTags() { return previewInterestTags; }
+    public Set<String> getExposureKeys() { return DiscoveryFeatures.publicKeys(ageYears, distanceMetres, previewInterestTags); }
 }

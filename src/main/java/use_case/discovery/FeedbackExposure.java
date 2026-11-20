@@ -2,30 +2,43 @@ package use_case.discovery;
 
 import entity.matchmaking.CandidateAttributeVector;
 import entity.matchmaking.ProfileId;
+import java.time.LocalDate;
 import java.util.*;
 
-/** Known, present features actually shown by the trusted fixture, frozen at capture. */
+/** Immutable, revision-bound preview offer. A render acknowledgement freezes a subset of its keys. */
 public final class FeedbackExposure {
     private final UUID id;
     private final ProfileId candidate;
-    private final int version;
-    private final Set<String> evidence;
+    private final long viewerRevision;
+    private final long candidateRevision;
+    private final LocalDate date;
+    private final Set<String> previewKeys;
 
-    public FeedbackExposure(UUID id, ProfileId candidate, CandidateAttributeVector attributes, Set<String> shown) {
+    public FeedbackExposure(UUID id, ProfileId candidate, long viewerRevision, long candidateRevision,
+                            LocalDate date, Set<String> previewKeys) {
         this.id = Objects.requireNonNull(id);
         this.candidate = Objects.requireNonNull(candidate);
-        version = attributes.version();
-        DiscoveryFeatures.requireCurrent(version, attributes.dimension());
-        Set<String> present = new TreeSet<>();
-        for (String feature : shown) {
-            int index = DiscoveryFeatures.indexOf(feature);
-            if (attributes.isKnown(index) && attributes.valueAt(index) > 0) present.add(feature);
-        }
-        evidence = Collections.unmodifiableSet(present);
+        if (viewerRevision < 1 || candidateRevision < 1) throw new IllegalArgumentException("Invalid revision");
+        this.viewerRevision = viewerRevision;
+        this.candidateRevision = candidateRevision;
+        this.date = Objects.requireNonNull(date);
+        this.previewKeys = Set.copyOf(previewKeys);
     }
 
     public UUID id() { return id; }
     public ProfileId candidate() { return candidate; }
-    public int version() { return version; }
-    public Set<String> evidence() { return evidence; }
+    public long viewerRevision() { return viewerRevision; }
+    public long candidateRevision() { return candidateRevision; }
+    public LocalDate date() { return date; }
+    public Set<String> previewKeys() { return previewKeys; }
+
+    public static Set<String> presentKeys(CandidateAttributeVector attributes, Set<String> offered) {
+        DiscoveryFeatures.requireCurrent(attributes.version(), attributes.dimension());
+        Set<String> known = new TreeSet<>();
+        for (String key : offered) {
+            int index = DiscoveryFeatures.indexOf(key);
+            if (attributes.isKnown(index) && attributes.valueAt(index) > 0) known.add(key);
+        }
+        return Collections.unmodifiableSet(known);
+    }
 }

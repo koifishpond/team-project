@@ -12,11 +12,19 @@ public final class NextPreviewInteractor implements NextPreviewInputBoundary {
     private final EligibilityPolicy eligibility;
     private final ViewerScorer scorer;
     private final Clock clock;
+    private final ExplorationPolicy exploration;
     public NextPreviewInteractor(ViewerSessionDataAccessInterface sessions, DiscoveryDataAccessInterface discovery,
                                  NextPreviewOutputBoundary output, EligibilityPolicy eligibility, ViewerScorer scorer, Clock clock) {
+        this(sessions, discovery, output, eligibility, scorer, clock, ExplorationPolicy.standard(new Random()));
+    }
+
+    public NextPreviewInteractor(ViewerSessionDataAccessInterface sessions, DiscoveryDataAccessInterface discovery,
+                                 NextPreviewOutputBoundary output, EligibilityPolicy eligibility, ViewerScorer scorer,
+                                 Clock clock, ExplorationPolicy exploration) {
         this.sessions = Objects.requireNonNull(sessions); this.discovery = Objects.requireNonNull(discovery);
         this.output = Objects.requireNonNull(output); this.eligibility = Objects.requireNonNull(eligibility);
         this.scorer = Objects.requireNonNull(scorer); this.clock = Objects.requireNonNull(clock).withZone(ZoneId.of("America/Toronto"));
+        this.exploration = Objects.requireNonNull(exploration);
     }
     @Override public void execute(NextPreviewInputData input) {
         Objects.requireNonNull(input);
@@ -40,23 +48,35 @@ public final class NextPreviewInteractor implements NextPreviewInputBoundary {
             return outcome(input, RETRYABLE_FAILURE);
         MatchingProfile viewer = snapshot.getViewer();
         if (!eligibility.available(viewer)) return outcome(input, VIEWER_UNAVAILABLE);
-        CandidateSnapshot best = null;
-        double bestScore = Double.NEGATIVE_INFINITY;
-        OptionalInt bestDistance = OptionalInt.empty();
+        List<RankedCandidate> eligible = new ArrayList<>();
         for (CandidateSnapshot candidate : snapshot.getCandidates()) {
             MatchingProfile profile = candidate.getProfile();
             OptionalInt distance = eligibility.distance(viewer, profile);
             if (!eligibility.eligible(viewer, profile, candidate.getPairState(), distance)) continue;
             CandidateAttributeVector attributes = DiscoveryFeatures.candidate(profile, distance);
             double score = scorer.score(snapshot.getViewerPreferences(), attributes);
-            if (best == null || Double.compare(score, bestScore) > 0 || (Double.compare(score, bestScore) == 0
-                    && profile.getProfileId().compareTo(best.getProfile().getProfileId()) < 0)) {
-                best = candidate; bestScore = score; bestDistance = distance;
-            }
+            eligible.add(new RankedCandidate(candidate, score, distance));
         }
-        if (best == null) return outcome(input, EMPTY);
+        if (eligible.isEmpty()) return outcome(input, EMPTY);
+        eligible.sort(Comparator.comparingDouble((RankedCandidate item) -> item.score).reversed()
+                .thenComparing(item -> item.candidate.getProfile().getProfileId()));
+        List<Double> scores = new ArrayList<>(eligible.size());
+        for (RankedCandidate item : eligible) scores.add(item.score);
+        RankedCandidate picked = eligible.get(exploration.chooseIndex(scores, snapshot.getExplorationEvidence(), input.getRequestId()));
         return new NextPreviewOutputData(input.getRequestId(), SELECTED,
-                Optional.of(new SelectedCandidateData(best.getPublicProfile(), snapshot.getFeedRevision(), date, bestDistance)));
+                Optional.of(new SelectedCandidateData(picked.candidate.getPublicProfile(), snapshot.getFeedRevision(), date, picked.distance)));
+    }
+
+    private static final class RankedCandidate {
+        private final CandidateSnapshot candidate;
+        private final double score;
+        private final OptionalInt distance;
+
+        private RankedCandidate(CandidateSnapshot candidate, double score, OptionalInt distance) {
+            this.candidate = candidate;
+            this.score = score;
+            this.distance = distance;
+        }
     }
     private NextPreviewOutputData outcome(NextPreviewInputData input, NextPreviewOutputData.Status status) {
         return new NextPreviewOutputData(input.getRequestId(), status, Optional.empty());

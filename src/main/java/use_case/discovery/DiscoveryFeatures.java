@@ -66,13 +66,36 @@ public final class DiscoveryFeatures {
         if (metres.isPresent()) {
             int distance = metres.getAsInt();
             if (distance < 0) throw new IllegalArgumentException("Negative distance");
-            long upperKm = DISTANCE_STEP_KM * ((distance + 4999L) / 5000);
-            setCategory(values, known, Group.DISTANCE, upperKm > MAX_DISTANCE_KM ? FARTHER : "distance:" + upperKm);
+            setCategory(values, known, Group.DISTANCE, distanceKey(distance));
         }
         profile.getRelationshipIntent().ifPresent(v -> setCategory(values, known, Group.INTENT, "intent:" + v.name()));
         profile.getSmoking().ifPresent(v -> setCategory(values, known, Group.SMOKING, "smoking:" + v.name()));
         profile.getDrinking().ifPresent(v -> setCategory(values, known, Group.DRINKING, "drinking:" + v.name()));
         return new CandidateAttributeVector(VERSION, values, known);
+    }
+
+    static String ageKey(int age) { return age > MAX_AGE ? OLDER : "age:" + age; }
+
+    static String distanceKey(int distance) {
+        long upperKm = DISTANCE_STEP_KM * ((distance + 4999L) / 5000);
+        return upperKm > MAX_DISTANCE_KM ? FARTHER : "distance:" + upperKm;
+    }
+
+    public static Set<String> publicKeys(int age, OptionalInt distance, Collection<InterestTag> interests) {
+        Set<String> keys = new HashSet<>();
+        keys.add(ageKey(age));
+        if (distance.isPresent()) keys.add(distanceKey(distance.getAsInt()));
+        for (InterestTag tag : interests) keys.add("interest:" + tag.name());
+        return Set.copyOf(keys);
+    }
+
+    public static Set<String> detailKeys(MatchingProfile profile, OptionalInt distance) {
+        Set<String> keys = new HashSet<>(publicKeys(profile.getAgeYears().orElseThrow(), distance,
+                profile.getInterestTags().orElse(Set.of())));
+        profile.getRelationshipIntent().ifPresent(intent -> keys.add("intent:" + intent.name()));
+        profile.getSmoking().ifPresent(value -> keys.add("smoking:" + value.name()));
+        profile.getDrinking().ifPresent(value -> keys.add("drinking:" + value.name()));
+        return Set.copyOf(keys);
     }
 
     private static void setCategory(double[] values, BitSet known, Group group, String activeKey) {

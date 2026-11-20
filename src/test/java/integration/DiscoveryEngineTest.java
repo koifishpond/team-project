@@ -19,7 +19,7 @@ import static use_case.discovery.NextPreviewOutputData.Status.*;
 
 /** Higher-level tests: real Controller, Interactor, fixture Data Access and plain Java Presenter. */
 class DiscoveryEngineTest {
-    private final Clock clock=Clock.fixed(Instant.parse("2026-11-17T02:00:00Z"),ZoneOffset.UTC);
+    private final TestClock clock=new TestClock(Instant.parse("2026-11-17T02:00:00Z"),ZoneOffset.UTC);
     private final LocalDate date=LocalDate.of(2026,11,16);
     private final InMemoryDiscoveryDataAccess data=new InMemoryDiscoveryDataAccess(clock);
     private final ProfileId viewerId=new ProfileId(100000001), candidateId=new ProfileId(100000002);
@@ -27,9 +27,13 @@ class DiscoveryEngineTest {
     private final ResolvedViewer viewer=new ResolvedViewer(viewerId,UUID.randomUUID(),UUID.randomUUID());
     private final List<DiscoveryViewModel> models=new ArrayList<>();
     private final List<NextPreviewOutputData> outputs=new ArrayList<>();
+    private final List<InteractionViewModel> receipts=new ArrayList<>();
+    private final List<OpenProfileOutputData> details=new ArrayList<>();
     private final DiscoveryPresenter presenter=new DiscoveryPresenter(models::add);
     private final DiscoveryController controller=new DiscoveryController(new NextPreviewInteractor(data,data,
-            output->{outputs.add(output);presenter.present(output);},new EligibilityPolicy(),new ViewerScorer(),clock));
+            output->{outputs.add(output);presenter.present(output);},new EligibilityPolicy(),new ViewerScorer(),clock,ExplorationPolicy.disabled()));
+    private final DiscoveryInteractionController interactions=new DiscoveryInteractionController(
+            new RecordFeedbackInteractor(data,new InteractionPresenter(receipts::add)),new OpenProfileInteractor(data,details::add));
 
     DiscoveryEngineTest() {
         data.addSession(viewerToken,viewer);
@@ -132,38 +136,37 @@ class DiscoveryEngineTest {
         c.ageMode="SOFT";success(data.commit(candidateToken,candidateId,4,SAVE,c)); assertEquals(SELECTED,next(viewerToken).getStatus());
     }
 
-    @Test void targetedLearningReordersTheSameEligiblePoolAndHardRulesStillWin() {
+    @Test void targetedLearningReordersRemainingCandidatesAndHardRulesStillWin() {
         ProfileFields.Input alex=minimum("Alex"); alex.locationArea="TORONTO";
         alex.preferredInterestTags=List.of("HIKING"); alex.maxKm=10; alex.distanceMode="SOFT";
         ProfileFields.Input taylor=minimum("Taylor"); taylor.locationArea="TORONTO"; taylor.interestTags=List.of("HIKING");
         ProfileFields.Input morgan=minimum("Morgan"); morgan.locationArea="MISSISSAUGA"; morgan.interestTags=List.of("HIKING");
         publish(viewerToken,viewerId,alex); publish(candidateToken,candidateId,taylor);
         ProfileId morganId=new ProfileId(100000003); addCandidate(morganId,morgan);
+        ProfileId caseyId=new ProfileId(100000004); addCandidate(caseyId,taylor);
         data.setPairState(viewer,candidateId,PairState.clear());
         assertEquals(candidateId,next(viewerToken).getCard().orElseThrow().getProfileId());
         long before=data.getFeedRevision();
-        UUID exposure=UUID.randomUUID();
-        assertTrue(data.captureExposure(viewerToken,exposure,lastSelection(),Set.of("distance:0","interest:HIKING","age:27")));
-        assertEquals(before,data.getFeedRevision());
-        RecordFeedbackInteractor feedback=new RecordFeedbackInteractor(data);
-        FeedbackEvent dislike=FeedbackEvent.targetedDislike(UUID.randomUUID(),exposure,"distance:0");
-        assertEquals(FeedbackResult.REJECTED,feedback.execute(candidateToken,dislike));
-        assertEquals(FeedbackResult.APPLIED,feedback.execute(viewerToken,dislike));
-        assertEquals(FeedbackResult.DUPLICATE,feedback.execute(viewerToken,dislike));
-        assertEquals(before+1,data.getFeedRevision());
+        UUID exposure=show(viewerToken,Set.of("distance:0","interest:HIKING","age:27"));
+        FeedbackEvent dislike=FeedbackEvent.targetedDislike(UUID.randomUUID(),exposure,2,"distance:0");
+        assertEquals(InteractionOutputData.Status.REJECTED,send(candidateToken,dislike).getStatus());
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,dislike).getStatus());
+        assertEquals(InteractionOutputData.Status.ALREADY_APPLIED,send(viewerToken,dislike).getStatus());
+        assertEquals(before+2,data.getFeedRevision());
         DiscoverySnapshot snapshot=data.load(viewer,date).getSnapshot().orElseThrow();
         assertEquals(-0.4,affinity(snapshot,"distance:0"),1e-12);
         assertEquals(0.5,affinity(snapshot,"interest:HIKING"));
         assertEquals(0,affinity(snapshot,"age:27"));
-        assertTrue(snapshot.getCandidates().stream().noneMatch(candidate->candidate.getPairState().excludes()));
+        assertEquals(1,snapshot.getCandidates().stream().filter(candidate->candidate.getPairState().excludes()).count());
         assertEquals(morganId,next(viewerToken).getCard().orElseThrow().getProfileId());
-        assertEquals(before+1,data.getFeedRevision());
+        assertEquals(before+2,data.getFeedRevision());
         assertEquals(Set.of(InterestTag.HIKING),data.getOwnedProfile(viewerToken,viewerId).orElseThrow()
                 .getFields().getPreferences().getPreferredInterestTags());
         alex.distanceMode="HARD";
         success(data.commit(viewerToken,viewerId,3,SAVE,alex));
-        assertEquals(candidateId,next(viewerToken).getCard().orElseThrow().getProfileId());
-        data.setPairState(viewer,candidateId,new PairState(false,true,false,false,false,false,false));
+        assertEquals(0.5,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"distance:0"));
+        assertEquals(caseyId,next(viewerToken).getCard().orElseThrow().getProfileId());
+        data.setPairState(viewer,caseyId,new PairState(false,true,false,false,false,false,false));
         assertEquals(EMPTY,next(viewerToken).getStatus());
     }
 
@@ -172,25 +175,27 @@ class DiscoveryEngineTest {
         ready(taylor);
         ResolvedViewer reverse=data.resolve(candidateToken).getViewer().orElseThrow();
         data.setPairState(reverse,viewerId,PairState.clear());
-        UUID exposure=UUID.randomUUID();
         assertEquals(SELECTED,next(viewerToken).getStatus());
         SelectedCandidateData shown=lastSelection();
-        assertTrue(data.captureExposure(viewerToken,exposure,shown,Set.of("interest:BOOKS","smoking:NEVER")));
-        assertFalse(data.captureExposure(viewerToken,exposure,shown,Set.of("age:27")));
+        UUID exposure=show(viewerToken,Set.of("interest:BOOKS"));
+        assertFalse(data.preparePreview(viewerToken,exposure,shown));
+        UUID likeId=UUID.randomUUID(), matchId=UUID.randomUUID();
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,FeedbackEvent.reaction(likeId,exposure,2,FeedbackEvent.Type.LIKE)).getStatus());
+        assertEquals(EMPTY,next(viewerToken).getStatus());
+        assertEquals(SELECTED,next(candidateToken).getStatus()); // incoming like does not exclude
         taylor.interestTags=List.of("ART"); taylor.smoking="NEVER";
         success(data.commit(candidateToken,candidateId,3,SAVE,taylor));
-        assertFalse(data.captureExposure(viewerToken,UUID.randomUUID(),shown,Set.of("interest:BOOKS")));
-        RecordFeedbackInteractor feedback=new RecordFeedbackInteractor(data);
-        UUID likeId=UUID.randomUUID(), matchId=UUID.randomUUID();
-        assertEquals(FeedbackResult.APPLIED,feedback.execute(viewerToken,FeedbackEvent.reaction(likeId,exposure,FeedbackEvent.Type.LIKE)));
+        assertFalse(data.preparePreview(viewerToken,UUID.randomUUID(),shown));
         ViewerPreferenceVector afterLike=data.load(viewer,date).getSnapshot().orElseThrow().getViewerPreferences();
         assertEquals(0.45,afterLike.affinityAt(DiscoveryFeatures.indexOf("interest:BOOKS")),1e-12);
-        FeedbackEvent match=FeedbackEvent.confirmedMatch(UUID.randomUUID(),exposure,likeId,matchId);
-        assertEquals(FeedbackResult.REJECTED,feedback.execute(viewerToken,match));
-        assertTrue(data.registerConfirmedMatch(matchId,viewerId,likeId));
-        assertEquals(FeedbackResult.APPLIED,feedback.execute(viewerToken,match));
-        assertEquals(FeedbackResult.DUPLICATE,feedback.execute(viewerToken,
-                FeedbackEvent.confirmedMatch(UUID.randomUUID(),exposure,likeId,matchId)));
+        data.expireSession(viewerToken);
+        ConfirmMatchInteractor backend=new ConfirmMatchInteractor(data);
+        BackendMatchConfirmation match=new BackendMatchConfirmation(matchId,viewerId,candidateId,exposure,likeId,clock.instant());
+        assertEquals(FeedbackResult.APPLIED,backend.execute(match));
+        long afterMatch=data.getFeedRevision();
+        assertEquals(FeedbackResult.DUPLICATE,backend.execute(match));
+        assertEquals(afterMatch,data.getFeedRevision());
+        assertEquals(EMPTY,next(candidateToken).getStatus());
         DiscoverySnapshot snapshot=data.load(viewer,date).getSnapshot().orElseThrow();
         assertEquals(0.70,affinity(snapshot,"interest:BOOKS"),1e-12);
         assertEquals(0,affinity(snapshot,"interest:ART"));
@@ -205,17 +210,393 @@ class DiscoveryEngineTest {
         assertEquals(SELECTED,next(viewerToken).getStatus());
         SelectedCandidateData shown=lastSelection();
         data.setPairState(viewer,candidateId,new PairState(true,false,false,false,false,false,false));
-        assertFalse(data.captureExposure(viewerToken,exposure,shown,Set.of("age:27")));
+        assertFalse(data.preparePreview(viewerToken,exposure,shown));
         data.setPairState(viewer,candidateId,PairState.clear());
         assertEquals(SELECTED,next(viewerToken).getStatus());
-        assertTrue(data.captureExposure(viewerToken,exposure,lastSelection(),Set.of("age:27")));
-        RecordFeedbackInteractor feedback=new RecordFeedbackInteractor(data);
-        FeedbackEvent opened=FeedbackEvent.reaction(UUID.randomUUID(),exposure,FeedbackEvent.Type.OPEN);
+        assertTrue(data.preparePreview(viewerToken,exposure,lastSelection()));
+        FeedbackEvent opened=FeedbackEvent.previewShown(UUID.randomUUID(),exposure,1,Set.of("age:27"));
         data.setAvailable(false);
-        assertEquals(FeedbackResult.RETRYABLE_FAILURE,feedback.execute(viewerToken,opened));
+        assertEquals(InteractionOutputData.Status.RETRYABLE_FAILURE,send(viewerToken,opened).getStatus());
         data.setAvailable(true); data.expireSession(viewerToken);
-        assertEquals(FeedbackResult.SESSION_EXPIRED,feedback.execute(viewerToken,opened));
+        assertEquals(InteractionOutputData.Status.SESSION_EXPIRED,send(viewerToken,opened).getStatus());
         assertEquals(0,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"age:27"));
+    }
+
+    @Test void swipesAndNeutralCloseSuppressOnlyForTheCurrentDiscoverySession() {
+        ready(minimum("Taylor"));
+        assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("age:27"));
+        FeedbackEvent passed=FeedbackEvent.reaction(UUID.randomUUID(),exposure,2,FeedbackEvent.Type.SWIPE);
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,passed).getStatus());
+        long revision=data.getFeedRevision();
+        assertEquals(InteractionOutputData.Status.ALREADY_APPLIED,send(viewerToken,passed).getStatus());
+        assertEquals(revision,data.getFeedRevision());
+        assertEquals(EMPTY,next(viewerToken).getStatus());
+        UUID resumed=newSession(viewer.getDiscoverySessionId());
+        assertEquals(EMPTY,next(resumed).getStatus());
+        UUID restarted=newSession(UUID.randomUUID());
+        assertEquals(SELECTED,next(restarted).getStatus());
+        UUID unshown=UUID.randomUUID();
+        assertTrue(data.preparePreview(restarted,unshown,lastSelection()));
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(restarted,
+                FeedbackEvent.reaction(UUID.randomUUID(),unshown,1,FeedbackEvent.Type.CLOSE)).getStatus());
+        assertEquals(1,data.engagementMetrics(viewerId).impressions());
+        assertEquals(SELECTED,next(restarted).getStatus());
+        UUID shown=show(restarted,Set.of("age:27"));
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(restarted,
+                FeedbackEvent.reaction(UUID.randomUUID(),shown,2,FeedbackEvent.Type.CLOSE)).getStatus());
+        assertEquals(EMPTY,next(restarted).getStatus());
+        assertEquals(-0.20,affinity(data.load(data.resolve(restarted).getViewer().orElseThrow(),date).getSnapshot().orElseThrow(),"age:27"),1e-12);
+        assertEquals(1,data.engagementMetrics(viewerId).returnSessions());
+    }
+
+    @Test void pendingBackendMatchAttachesExactlyOnceAndExcludesBothPeopleAfterSessionRestart() {
+        ProfileFields.Input c=minimum("Taylor"); c.interestTags=List.of("BOOKS"); ready(c);
+        assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("interest:BOOKS")), like=UUID.randomUUID();
+        ConfirmMatchInteractor backend=new ConfirmMatchInteractor(data);
+        BackendMatchConfirmation early=new BackendMatchConfirmation(UUID.randomUUID(),viewerId,candidateId,exposure,like,clock.instant());
+        assertEquals(FeedbackResult.PENDING,backend.execute(early));
+        assertEquals(FeedbackResult.PENDING,backend.execute(early));
+        assertEquals(0,data.engagementMetrics(viewerId).confirmations());
+        long before=data.getFeedRevision();
+        FeedbackEvent action=FeedbackEvent.reaction(like,exposure,2,FeedbackEvent.Type.LIKE);
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,action).getStatus());
+        assertEquals(before+1,data.getFeedRevision());
+        assertEquals(FeedbackResult.DUPLICATE,backend.execute(early));
+        assertEquals(1,data.engagementMetrics(viewerId).likes());
+        assertEquals(1,data.engagementMetrics(viewerId).confirmations());
+        data.expireSession(viewerToken); data.expireSession(candidateToken);
+        UUID newViewer=newSession(UUID.randomUUID()), newCandidate=UUID.randomUUID();
+        data.addSession(newCandidate,new ResolvedViewer(candidateId,UUID.randomUUID(),UUID.randomUUID()));
+        assertEquals(EMPTY,next(newViewer).getStatus()); assertEquals(EMPTY,next(newCandidate).getStatus());
+        assertEquals(0.70,affinity(data.load(data.resolve(newViewer).getViewer().orElseThrow(),date).getSnapshot().orElseThrow(),"interest:BOOKS"),1e-12);
+        assertEquals(FeedbackResult.REJECTED,backend.execute(new BackendMatchConfirmation(UUID.randomUUID(),viewerId,candidateId,
+                exposure,like,clock.instant())));
+    }
+
+    @Test void nonAcceptedActionsAndMismatchedMatchLinksDoNotChangeEligibility() {
+        ready(minimum("Taylor")); assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("age:27"));
+        UUID expectedLike=UUID.randomUUID();
+        ConfirmMatchInteractor backend=new ConfirmMatchInteractor(data);
+        BackendMatchConfirmation pending=new BackendMatchConfirmation(UUID.randomUUID(),viewerId,candidateId,exposure,expectedLike,clock.instant());
+        assertEquals(FeedbackResult.PENDING,backend.execute(pending));
+        assertEquals(InteractionOutputData.Status.REJECTED,send(viewerToken,FeedbackEvent.reaction(expectedLike,exposure,1,FeedbackEvent.Type.LIKE)).getStatus());
+        assertEquals(SELECTED,next(candidateToken).getStatus());
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,FeedbackEvent.reaction(UUID.randomUUID(),exposure,2,FeedbackEvent.Type.SWIPE)).getStatus());
+        assertEquals(FeedbackResult.REJECTED,backend.execute(pending));
+        assertEquals(0,data.engagementMetrics(viewerId).confirmations());
+        assertEquals(SELECTED,next(candidateToken).getStatus());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans={true,false})
+    void bothParticipantsGetOneUpgradeWithEitherBackendDeliveryOrder(boolean confirmationFirst) {
+        ProfileFields.Input alex=minimum("Alex"), taylor=minimum("Taylor");
+        alex.interestTags=List.of("ART","MUSIC"); taylor.interestTags=List.of("BOOKS","HIKING");
+        publish(viewerToken,viewerId,alex); publish(candidateToken,candidateId,taylor);
+        data.setPairState(viewer,candidateId,PairState.clear());
+        assertEquals(candidateId,next(viewerToken).getCard().orElseThrow().getProfileId());
+        UUID alexOffer=show(viewerToken,Set.of("interest:BOOKS"));
+        assertEquals(viewerId,next(candidateToken).getCard().orElseThrow().getProfileId());
+        UUID taylorOffer=show(candidateToken,Set.of("interest:ART"));
+        FeedbackEvent alexLike=FeedbackEvent.reaction(UUID.randomUUID(),alexOffer,2,FeedbackEvent.Type.LIKE);
+        FeedbackEvent taylorLike=FeedbackEvent.reaction(UUID.randomUUID(),taylorOffer,2,FeedbackEvent.Type.LIKE);
+        BackendAcceptedLike replay=new BackendAcceptedLike(candidateId,viewerId,taylorLike,clock.instant());
+        UUID matchId=UUID.randomUUID();
+        BackendMatchConfirmation alexConfirmation=new BackendMatchConfirmation(matchId,viewerId,candidateId,alexOffer,alexLike.id(),clock.instant());
+        BackendMatchConfirmation taylorConfirmation=new BackendMatchConfirmation(matchId,candidateId,viewerId,taylorOffer,taylorLike.id(),clock.instant());
+        ConfirmMatchInteractor matches=new ConfirmMatchInteractor(data);
+        ReplayAcceptedLikeInteractor likes=new ReplayAcceptedLikeInteractor(data);
+
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,alexLike).getStatus());
+        if (confirmationFirst) {
+            assertEquals(FeedbackResult.PENDING,matches.execute(taylorConfirmation));
+            assertEquals(FeedbackResult.PENDING,matches.execute(taylorConfirmation));
+        }
+        assertEquals(FeedbackResult.APPLIED,matches.execute(alexConfirmation));
+        long beforeReplay=data.getFeedRevision();
+        InteractionViewModel refused=send(candidateToken,taylorLike);
+        assertEquals(InteractionOutputData.Status.REJECTED,refused.getStatus());
+        assertEquals(InteractionOutputData.Rejection.PREVIEW_UNAVAILABLE,refused.getRejection().orElseThrow());
+        assertEquals(beforeReplay,data.getFeedRevision());
+        assertEquals(0,data.engagementMetrics(candidateId).likes());
+        assertEquals(0,data.engagementMetrics(candidateId).confirmations());
+
+        UUID taylorSession=candidateToken;
+        if (confirmationFirst) {
+            data.expireSession(candidateToken);
+            assertEquals(InteractionOutputData.Status.SESSION_EXPIRED,send(candidateToken,taylorLike).getStatus());
+            taylorSession=UUID.randomUUID();
+            data.addSession(taylorSession,new ResolvedViewer(candidateId,UUID.randomUUID(),UUID.randomUUID()));
+            assertEquals(InteractionOutputData.Status.REJECTED,send(taylorSession,taylorLike).getStatus());
+            alex.interestTags=List.of("TRAVEL");
+            success(data.commit(viewerToken,viewerId,3,SAVE,alex));
+        }
+        beforeReplay=data.getFeedRevision();
+        assertEquals(FeedbackResult.APPLIED,likes.execute(replay));
+        assertEquals(beforeReplay+1,data.getFeedRevision());
+        assertEquals(FeedbackResult.DUPLICATE,likes.execute(replay));
+        assertEquals(beforeReplay+1,data.getFeedRevision());
+        if (!confirmationFirst) {
+            assertEquals(0,data.engagementMetrics(candidateId).confirmations());
+            DiscoverySnapshot snapshot=data.load(data.resolve(taylorSession).getViewer().orElseThrow(),date).getSnapshot().orElseThrow();
+            assertEquals(0.45,affinity(snapshot,"interest:ART"),1e-12);
+            assertEquals(FeedbackResult.APPLIED,matches.execute(taylorConfirmation));
+        }
+        long finalRevision=data.getFeedRevision();
+        assertEquals(FeedbackResult.DUPLICATE,matches.execute(alexConfirmation));
+        assertEquals(FeedbackResult.DUPLICATE,matches.execute(taylorConfirmation));
+        assertEquals(FeedbackResult.DUPLICATE,likes.execute(new BackendAcceptedLike(viewerId,candidateId,alexLike,clock.instant())));
+        assertEquals(finalRevision,data.getFeedRevision());
+        assertEquals(EMPTY,next(viewerToken).getStatus());
+        assertEquals(EMPTY,next(taylorSession).getStatus());
+        assertEquals(1,data.engagementMetrics(viewerId).impressions());
+        assertEquals(1,data.engagementMetrics(candidateId).impressions());
+        for (ProfileId participant : List.of(viewerId,candidateId)) {
+            assertEquals(1,data.engagementMetrics(participant).likes());
+            assertEquals(1,data.engagementMetrics(participant).confirmations());
+        }
+        DiscoverySnapshot alexSnapshot=data.load(viewer,date).getSnapshot().orElseThrow();
+        DiscoverySnapshot taylorSnapshot=data.load(data.resolve(taylorSession).getViewer().orElseThrow(),date).getSnapshot().orElseThrow();
+        assertEquals(0.70,affinity(alexSnapshot,"interest:BOOKS"),1e-12);
+        assertEquals(0.70,affinity(taylorSnapshot,"interest:ART"),1e-12);
+        assertEquals(0,affinity(alexSnapshot,"interest:HIKING"));
+        assertEquals(0,affinity(taylorSnapshot,"interest:MUSIC"));
+        assertEquals(0,affinity(taylorSnapshot,"interest:TRAVEL"));
+        clock.advance(Duration.ofHours(24));
+        assertEquals(1,data.engagementMetrics(viewerId).matureMatches());
+        assertEquals(1,data.engagementMetrics(candidateId).matureMatches());
+    }
+
+    @Test void conflictingBackendLinksCannotConsumeTheCanonicalPendingMatch() {
+        ready(minimum("Taylor"));
+        assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID alexOffer=show(viewerToken,Set.of("age:27"));
+        assertEquals(SELECTED,next(candidateToken).getStatus());
+        UUID taylorOffer=show(candidateToken,Set.of("age:27"));
+        UUID matchId=UUID.randomUUID();
+        FeedbackEvent alexLike=FeedbackEvent.reaction(UUID.randomUUID(),alexOffer,2,FeedbackEvent.Type.LIKE);
+        FeedbackEvent taylorLike=FeedbackEvent.reaction(UUID.randomUUID(),taylorOffer,2,FeedbackEvent.Type.LIKE);
+        Instant acceptedAt=clock.instant();
+        BackendMatchConfirmation alexMatch=new BackendMatchConfirmation(matchId,viewerId,candidateId,alexOffer,alexLike.id(),acceptedAt);
+        BackendMatchConfirmation taylorMatch=new BackendMatchConfirmation(matchId,candidateId,viewerId,taylorOffer,taylorLike.id(),acceptedAt);
+        ConfirmMatchInteractor matches=new ConfirmMatchInteractor(data);
+        ReplayAcceptedLikeInteractor likes=new ReplayAcceptedLikeInteractor(data);
+        assertEquals(FeedbackResult.PENDING,matches.execute(taylorMatch));
+        long revision=data.getFeedRevision();
+        assertEquals(FeedbackResult.REJECTED,matches.execute(new BackendMatchConfirmation(UUID.randomUUID(),viewerId,candidateId,alexOffer,alexLike.id(),acceptedAt)));
+        assertEquals(FeedbackResult.REJECTED,matches.execute(new BackendMatchConfirmation(matchId,candidateId,viewerId,taylorOffer,UUID.randomUUID(),acceptedAt)));
+        assertEquals(FeedbackResult.REJECTED,likes.execute(new BackendAcceptedLike(viewerId,candidateId,taylorLike,acceptedAt)));
+        FeedbackEvent wrongExposure=FeedbackEvent.reaction(taylorLike.id(),alexOffer,2,FeedbackEvent.Type.LIKE);
+        assertEquals(FeedbackResult.REJECTED,likes.execute(new BackendAcceptedLike(candidateId,viewerId,wrongExposure,acceptedAt)));
+        FeedbackEvent wrongLike=FeedbackEvent.reaction(UUID.randomUUID(),taylorOffer,2,FeedbackEvent.Type.LIKE);
+        assertEquals(FeedbackResult.REJECTED,likes.execute(new BackendAcceptedLike(candidateId,viewerId,wrongLike,acceptedAt)));
+        assertEquals(InteractionOutputData.Status.REJECTED,send(candidateToken,wrongLike).getStatus());
+        assertEquals(revision,data.getFeedRevision());
+        assertEquals(FeedbackResult.PENDING,matches.execute(alexMatch));
+        assertEquals(FeedbackResult.APPLIED,likes.execute(new BackendAcceptedLike(viewerId,candidateId,alexLike,acceptedAt)));
+        assertEquals(FeedbackResult.APPLIED,likes.execute(new BackendAcceptedLike(candidateId,viewerId,taylorLike,acceptedAt)));
+        assertEquals(FeedbackResult.DUPLICATE,matches.execute(alexMatch));
+        assertEquals(FeedbackResult.DUPLICATE,matches.execute(taylorMatch));
+        assertEquals(FeedbackResult.REJECTED,likes.execute(new BackendAcceptedLike(candidateId,viewerId,
+                FeedbackEvent.reaction(UUID.randomUUID(),taylorOffer,3,FeedbackEvent.Type.LIKE),acceptedAt)));
+        assertEquals(revision+2,data.getFeedRevision());
+        assertEquals(1,data.engagementMetrics(viewerId).confirmations());
+        assertEquals(1,data.engagementMetrics(candidateId).confirmations());
+    }
+
+    @Test void pendingConfirmationDoesNotAuthorizeNewUiLikeDuringBlockOrOutage() {
+        ready(minimum("Taylor")); assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("age:27"));
+        FeedbackEvent action=FeedbackEvent.reaction(UUID.randomUUID(),exposure,2,FeedbackEvent.Type.LIKE);
+        BackendMatchConfirmation match=new BackendMatchConfirmation(UUID.randomUUID(),viewerId,candidateId,exposure,action.id(),clock.instant());
+        assertEquals(FeedbackResult.PENDING,new ConfirmMatchInteractor(data).execute(match));
+        data.setPairState(viewer,candidateId,new PairState(false,true,false,false,false,false,false));
+        assertEquals(InteractionOutputData.Rejection.PREVIEW_UNAVAILABLE,send(viewerToken,action).getRejection().orElseThrow());
+        data.setAvailable(false);
+        assertEquals(InteractionOutputData.Status.RETRYABLE_FAILURE,send(viewerToken,action).getStatus());
+        data.setAvailable(true);
+        assertEquals(0,data.engagementMetrics(viewerId).likes());
+        assertEquals(0,data.engagementMetrics(viewerId).confirmations());
+    }
+
+    @Test void detailAuthorizationAndActualRenderingAreSeparateAndRevealOnlyPublicEvidence() {
+        ProfileFields.Input c=minimum("Taylor"); c.interestTags=List.of("ART","BOOKS","HIKING","MUSIC");
+        c.smoking="NEVER"; c.drinking="SOMETIMES"; c.gender="WOMAN"; c.showGender=false;
+        ready(c); assertEquals(SELECTED,next(viewerToken).getStatus());
+        SelectedCandidateData preview=lastSelection();
+        UUID exposure=UUID.randomUUID(); assertTrue(data.preparePreview(viewerToken,exposure,preview));
+        assertEquals(0,data.engagementMetrics(viewerId).impressions());
+        assertFalse(preview.getExposureKeys().contains("interest:MUSIC"));
+        assertFalse(preview.getExposureKeys().contains("smoking:NEVER"));
+        assertEquals(OpenProfileResult.Status.PROFILE_UNAVAILABLE,open(viewerToken,exposure).getStatus());
+        FeedbackEvent forged=FeedbackEvent.previewShown(UUID.randomUUID(),exposure,1,Set.of("smoking:NEVER"));
+        assertEquals(InteractionOutputData.Status.REJECTED,send(viewerToken,forged).getStatus());
+        FeedbackEvent shown=FeedbackEvent.previewShown(UUID.randomUUID(),exposure,2,Set.of("interest:ART"));
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,shown).getStatus());
+        assertEquals(InteractionOutputData.Status.ALREADY_APPLIED,send(viewerToken,shown).getStatus());
+        FeedbackEvent rejectedDislike=FeedbackEvent.targetedDislike(UUID.randomUUID(),exposure,3,"smoking:NEVER");
+        assertEquals(InteractionOutputData.Status.REJECTED,send(viewerToken,rejectedDislike).getStatus());
+        assertEquals(OpenProfileResult.Status.PROFILE_UNAVAILABLE,open(candidateToken,exposure).getStatus());
+        PublicProfileDetailData detail=open(viewerToken,exposure).getDetail().orElseThrow();
+        assertTrue(detail.getPublicGender().isEmpty()); assertEquals(preview.getProfileRevision(),detail.getProfileRevision());
+        assertTrue(detail.getExposureKeys().containsAll(Set.of("smoking:NEVER","interest:MUSIC")));
+        assertEquals(0,data.engagementMetrics(viewerId).firstOpens());
+        assertEquals(InteractionOutputData.Status.REJECTED,send(viewerToken,rejectedDislike).getStatus());
+        FeedbackEvent opened=FeedbackEvent.profileOpened(UUID.randomUUID(),exposure,4,Set.of("smoking:NEVER"));
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,opened).getStatus());
+        assertEquals(InteractionOutputData.Status.ALREADY_APPLIED,send(viewerToken,opened).getStatus());
+        assertEquals(OpenProfileResult.Status.READY,open(viewerToken,exposure).getStatus());
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,
+                FeedbackEvent.profileOpened(UUID.randomUUID(),exposure,5,Set.of("drinking:SOMETIMES"))).getStatus());
+        assertEquals(1,data.engagementMetrics(viewerId).firstOpens());
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,
+                FeedbackEvent.targetedDislike(UUID.randomUUID(),exposure,6,"smoking:NEVER")).getStatus());
+        assertEquals(-0.9,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"smoking:NEVER"));
+        assertEquals(0,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"interest:MUSIC"));
+        assertEquals(EMPTY,next(newSession(UUID.randomUUID())).getStatus());
+    }
+
+    @Test void detailAndDelayedClientActionsRejectAChangedProfileRevision() {
+        ready(minimum("Taylor")); assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("age:27"));
+        success(data.commit(candidateToken,candidateId,3,SAVE,minimum("Changed")));
+        assertEquals(OpenProfileResult.Status.PROFILE_UNAVAILABLE,open(viewerToken,exposure).getStatus());
+        InteractionViewModel receipt=send(viewerToken,FeedbackEvent.reaction(UUID.randomUUID(),exposure,2,FeedbackEvent.Type.LIKE));
+        assertEquals(InteractionOutputData.Rejection.PREVIEW_UNAVAILABLE,receipt.getRejection().orElseThrow());
+        assertEquals(0,data.engagementMetrics(viewerId).likes());
+        assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID fresh=show(viewerToken,Set.of("age:27"));
+        assertNotEquals(exposure,fresh);
+        assertEquals(2,data.engagementMetrics(viewerId).impressions());
+    }
+
+    @Test void actualEngagementAndConfirmedOutcomesSurviveLearningResetAndDeduplicateReports() {
+        ready(minimum("Taylor")); assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("age:27"));
+        assertEquals(InteractionOutputData.Status.REJECTED,send(viewerToken,FeedbackEvent.activeView(UUID.randomUUID(),exposure,2,0)).getStatus());
+        assertEquals(OpenProfileResult.Status.READY,open(viewerToken,exposure).getStatus());
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,FeedbackEvent.profileOpened(UUID.randomUUID(),exposure,3,Set.of("age:27"))).getStatus());
+        clock.advance(Duration.ofSeconds(30));
+        assertEquals(InteractionOutputData.Status.REJECTED,send(viewerToken,FeedbackEvent.activeView(UUID.randomUUID(),exposure,4,31_000)).getStatus());
+        FeedbackEvent dwell=FeedbackEvent.activeView(UUID.randomUUID(),exposure,5,25_000);
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,dwell).getStatus());
+        assertEquals(InteractionOutputData.Status.ALREADY_APPLIED,send(viewerToken,dwell).getStatus());
+        UUID like=UUID.randomUUID();
+        assertEquals(InteractionOutputData.Status.ACCEPTED,send(viewerToken,FeedbackEvent.reaction(like,exposure,6,FeedbackEvent.Type.LIKE,30_000)).getStatus());
+        success(data.commit(viewerToken,viewerId,3,SAVE,minimum("Renamed")));
+        assertEquals(0.45,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"age:27"),1e-12);
+        ProfileFields.Input edited=minimum("Viewer"); edited.preferredInterestTags=List.of("ART");
+        success(data.commit(viewerToken,viewerId,4,SAVE,edited));
+        assertEquals(0,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"age:27"));
+        assertEquals(FeedbackResult.APPLIED,new ConfirmMatchInteractor(data).execute(
+                new BackendMatchConfirmation(UUID.randomUUID(),viewerId,candidateId,exposure,like,clock.instant())));
+        assertEquals(0,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"age:27"));
+        assertEquals(0,data.engagementMetrics(viewerId).matureImpressions());
+        clock.advance(Duration.ofHours(24));
+        EngagementMetrics metrics=data.engagementMetrics(viewerId);
+        assertEquals(1,metrics.impressions()); assertEquals(1,metrics.firstOpens()); assertEquals(30_000,metrics.activeMillis());
+        assertEquals(1,metrics.likes()); assertEquals(1,metrics.confirmations()); assertEquals(1,metrics.matureImpressions());
+        assertEquals(1,metrics.matureMatches()); assertEquals(1,metrics.openRate()); assertEquals(1,metrics.matureMatchRate());
+        assertTrue(data.load(viewer,date.plusDays(1)).getSnapshot().orElseThrow().getExplorationEvidence().isEmpty());
+    }
+
+    @Test void racingRetriesCommitOneReceiptOnePairChangeAndOneLearningContribution() throws Exception {
+        ready(minimum("Taylor")); assertEquals(SELECTED,next(viewerToken).getStatus());
+        UUID exposure=show(viewerToken,Set.of("age:27"));
+        FeedbackEvent swipe=FeedbackEvent.reaction(UUID.randomUUID(),exposure,2,FeedbackEvent.Type.SWIPE);
+        long revision=data.getFeedRevision();
+        ExecutorService executor=Executors.newFixedThreadPool(2); CountDownLatch go=new CountDownLatch(1);
+        try {
+            Callable<FeedbackResult> delivery=()->{ go.await(); return data.applyFeedback(viewerToken,swipe); };
+            Future<FeedbackResult> first=executor.submit(delivery), second=executor.submit(delivery); go.countDown();
+            assertEquals(Set.of(FeedbackResult.APPLIED,FeedbackResult.DUPLICATE),
+                    new HashSet<>(List.of(first.get(5,TimeUnit.SECONDS),second.get(5,TimeUnit.SECONDS))));
+        } finally { executor.shutdownNow(); }
+        assertEquals(revision+1,data.getFeedRevision());
+        assertEquals(EMPTY,next(viewerToken).getStatus());
+        assertEquals(-0.20,affinity(data.load(viewer,date).getSnapshot().orElseThrow(),"age:27"),1e-12);
+    }
+
+    @Test void seededExplorationNeverSelectsBlockedHardIneligibleOrOutOfBandCandidates() {
+        ProfileFields.Input person=minimum("Alex"); person.preferredInterestTags=List.of("HIKING");
+        person.minYears=25; person.maxYears=30; person.ageMode="SOFT";
+        publish(viewerToken,viewerId,person);
+        publish(candidateToken,candidateId,aged("Best",27)); data.setPairState(viewer,candidateId,PairState.clear());
+        ProfileId near=new ProfileId(100000003); addCandidate(near,aged("Eligible nearby score",32));
+        ProfileId low=new ProfileId(100000004); addCandidate(low,aged("Outside band",45));
+        ProfileId blocked=new ProfileId(100000005); addCandidate(blocked,aged("Blocked",31));
+        data.setPairState(viewer,blocked,new PairState(false,true,false,false,false,false,false));
+        ProfileId hard=new ProfileId(100000006); ProfileFields.Input hardProfile=aged("Rejects viewer",32);
+        hardProfile.minYears=35; hardProfile.maxYears=40; hardProfile.ageMode="HARD"; addCandidate(hard,hardProfile);
+        assertEquals(candidateId,next(viewerToken).getCard().orElseThrow().getProfileId());
+        ExplorationPolicy policy=new ExplorationPolicy(new Random(42),1,0.10,0.02,0.02,0.10,2);
+        assertEquals(near,explore(viewerToken,policy).getProfileId());
+        data.setPairState(viewer,near,new PairState(true,false,false,false,false,false,false));
+        assertEquals(candidateId,explore(viewerToken,policy).getProfileId());
+    }
+
+    @Test void realMatureCohortsNarrowTheExplorationBandAndPreferenceEditResetsIt() {
+        ProfileFields.Input person=minimum("Alex"); person.preferredInterestTags=List.of("HIKING");
+        person.minYears=25; person.maxYears=30; person.ageMode="SOFT";
+        publish(viewerToken,viewerId,person); publish(candidateToken,candidateId,aged("Best",27));
+        data.setPairState(viewer,candidateId,PairState.clear());
+        for (int i=0;i<4;i++) {
+            UUID session=newSession(UUID.randomUUID()); assertEquals(SELECTED,next(session).getStatus());
+            UUID id=show(session,Set.of());
+            if (i>=2) {
+                assertEquals(OpenProfileResult.Status.READY,open(session,id).getStatus());
+                assertEquals(InteractionOutputData.Status.ACCEPTED,
+                        send(session,FeedbackEvent.profileOpened(UUID.randomUUID(),id,2,Set.of())).getStatus());
+            }
+            assertEquals(InteractionOutputData.Status.ACCEPTED,
+                    send(session,FeedbackEvent.reaction(UUID.randomUUID(),id,3,FeedbackEvent.Type.CLOSE)).getStatus());
+            clock.advance(Duration.ofSeconds(1));
+        }
+        ProfileId alt=new ProfileId(100000003); addCandidate(alt,aged("Alternative",36));
+        ExplorationPolicy policy=new ExplorationPolicy(new Random(22),1,0.20,0.05,0.10,0.10,2);
+        assertEquals(alt,explore(viewerToken,policy).getProfileId());
+        clock.advance(Duration.ofHours(24));
+        assertEquals(candidateId,explore(viewerToken,policy).getProfileId());
+        person.maxYears=31; success(data.commit(viewerToken,viewerId,3,SAVE,person));
+        assertEquals(alt,explore(viewerToken,policy).getProfileId());
+        assertEquals(4,data.engagementMetrics(viewerId).matureImpressions());
+    }
+
+    private ProfileFields.Input aged(String name,int age) {
+        ProfileFields.Input input=minimum(name); input.dateOfBirth=date.minusYears(age); input.interestTags=List.of("HIKING"); return input;
+    }
+
+    private SelectedCandidateData explore(UUID token,ExplorationPolicy policy) {
+        List<NextPreviewOutputData> results=new ArrayList<>();
+        DiscoveryController engine=new DiscoveryController(new NextPreviewInteractor(data,data,results::add,
+                new EligibilityPolicy(),new ViewerScorer(),clock,policy));
+        UUID request=UUID.randomUUID(); engine.next(request,token);
+        assertEquals(1,results.size()); assertEquals(request,results.get(0).getRequestId());
+        return results.get(0).getSelectedCandidate().orElseThrow();
+    }
+
+    private OpenProfileOutputData open(UUID token, UUID exposure) {
+        UUID request=UUID.randomUUID(); int count=details.size(); interactions.open(request,token,exposure);
+        assertEquals(count+1,details.size()); OpenProfileOutputData detail=details.get(count);
+        assertEquals(request,detail.getRequestId()); assertEquals(exposure,detail.getExposureId()); return detail;
+    }
+
+    private UUID newSession(UUID discoverySession) {
+        UUID token=UUID.randomUUID(); data.addSession(token,new ResolvedViewer(viewerId,UUID.randomUUID(),discoverySession)); return token;
+    }
+
+    private static final class TestClock extends Clock {
+        private final java.util.concurrent.atomic.AtomicReference<Instant> now;
+        private final ZoneId zone;
+        TestClock(Instant start, ZoneId zone) { this(new java.util.concurrent.atomic.AtomicReference<>(start),zone); }
+        private TestClock(java.util.concurrent.atomic.AtomicReference<Instant> now, ZoneId zone) { this.now=now; this.zone=zone; }
+        void advance(Duration elapsed) { now.updateAndGet(instant->instant.plus(elapsed)); }
+        @Override public Instant instant() { return now.get(); }
+        @Override public ZoneId getZone() { return zone; }
+        @Override public Clock withZone(ZoneId zone) { return new TestClock(now,zone); }
     }
 
     private void addCandidate(ProfileId id,ProfileFields.Input input) {
@@ -229,6 +610,22 @@ class DiscoveryEngineTest {
 
     private SelectedCandidateData lastSelection() {
         return outputs.get(outputs.size()-1).getSelectedCandidate().orElseThrow();
+    }
+
+    private InteractionViewModel send(UUID token,FeedbackEvent event) {
+        int count=receipts.size(); interactions.interact(token,event);
+        assertEquals(count+1,receipts.size());
+        InteractionViewModel receipt=receipts.get(count);
+        assertEquals(event.id(),receipt.getEventId()); assertEquals(event.exposureId(),receipt.getExposureId());
+        return receipt;
+    }
+
+    private UUID show(UUID token, Set<String> keys) {
+        UUID exposure=UUID.randomUUID();
+        assertTrue(data.preparePreview(token,exposure,lastSelection()));
+        assertEquals(InteractionOutputData.Status.ACCEPTED,
+                send(token,FeedbackEvent.previewShown(UUID.randomUUID(),exposure,1,keys)).getStatus());
+        return exposure;
     }
     @Test void lifecycleRevisionOrderingNormalizationAndFailuresPreserveState() {
         DiscoveryProfile draft=success(data.createDraft(viewerToken)); assertEquals(1,draft.getProfileRevision());
@@ -342,7 +739,8 @@ class DiscoveryEngineTest {
     }
     @Test void publicBoundaryTypesAndSourceDependenciesRespectPrivacyAndCA() throws Exception {
         Set<String> forbidden=Set.of("dateOfBirth","gender","audience","preferences","preferredInterestTags","locationArea","latitude","longitude","password","email","phone","score","viewerPreferences","attributes","affinities");
-        for(Class<?> type:List.of(PublicProfileSummary.class,SelectedCandidateData.class,DiscoveryViewModel.class,DiscoveryViewModel.Card.class)) {
+        for(Class<?> type:List.of(PublicProfileSummary.class,SelectedCandidateData.class,PublicProfileDetailData.class,
+                InteractionViewModel.class,DiscoveryViewModel.class,DiscoveryViewModel.Card.class)) {
             Set<String> fields=Arrays.stream(type.getDeclaredFields()).map(Field::getName).collect(Collectors.toSet());
             assertTrue(Collections.disjoint(forbidden,fields),type.getName());
             assertFalse(Arrays.stream(type.getDeclaredFields()).anyMatch(field->field.getType()==CandidateAttributeVector.class

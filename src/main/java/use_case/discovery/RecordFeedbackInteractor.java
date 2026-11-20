@@ -1,23 +1,23 @@
 package use_case.discovery;
 
 import java.util.Objects;
-import java.util.UUID;
 
-/** Headless feedback use case. Selection never invokes this write boundary. */
-public final class RecordFeedbackInteractor {
+public final class RecordFeedbackInteractor implements RecordInteractionInputBoundary {
     private final FeedbackDataAccessInterface feedback;
+    private final InteractionOutputBoundary output;
 
-    public RecordFeedbackInteractor(FeedbackDataAccessInterface feedback) {
+    public RecordFeedbackInteractor(FeedbackDataAccessInterface feedback, InteractionOutputBoundary output) {
         this.feedback = Objects.requireNonNull(feedback);
+        this.output = Objects.requireNonNull(output);
     }
 
-    public FeedbackResult execute(UUID sessionToken, FeedbackEvent event) {
-        Objects.requireNonNull(sessionToken);
-        Objects.requireNonNull(event);
+    @Override public void execute(InteractionInputData input) {
+        FeedbackResult result;
         try {
-            return feedback.applyFeedback(sessionToken, event);
+            result = feedback.applyFeedback(input.getSessionToken(), input.getEvent());
         } catch (DataAccessException failure) {
-            return FeedbackResult.RETRYABLE_FAILURE;
+            result = FeedbackResult.RETRYABLE_FAILURE;
         }
+        output.present(new InteractionOutputData(input.getEvent(), result));
     }
 }

@@ -12,6 +12,13 @@ public final class PairState {
         this.suppressedInCurrentSession = suppressedInCurrentSession;
     }
     public static PairState clear() { return new PairState(false, false, false, false, false, false, false); }
+    public boolean viewerBlockedCandidate() { return viewerBlockedCandidate; }
+    public boolean candidateBlockedViewer() { return candidateBlockedViewer; }
+    public boolean viewerLikedCandidate() { return viewerLikedCandidate; }
+    public boolean matched() { return matched; }
+    public boolean viewerDislikedCandidate() { return viewerDislikedCandidate; }
+    public boolean viewerReportedCandidate() { return viewerReportedCandidate; }
+    public boolean suppressedInCurrentSession() { return suppressedInCurrentSession; }
     public boolean excludes() {
         return viewerBlockedCandidate || candidateBlockedViewer || viewerLikedCandidate || matched
                 || viewerDislikedCandidate || viewerReportedCandidate || suppressedInCurrentSession;
