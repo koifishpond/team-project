@@ -48,30 +48,28 @@ public class Main {
             ProfileInteractor profileInteractor = new ProfileInteractor(profileDataAccess, profilePresenter);
             ProfileController profileController = new ProfileController(profileInteractor);
 
-                LoginViewModel loginViewModel = new LoginViewModel();
-                LoginPresenter loginPresenter = new LoginPresenter(loginViewModel);
-                LoginInteractor loginInteractor = new LoginInteractor(profileDataAccess, loginPresenter);
-                LoginController loginController = new LoginController(loginInteractor);
+            LoginViewModel loginViewModel = new LoginViewModel();
+            LoginPresenter loginPresenter = new LoginPresenter(loginViewModel);
+            LoginInteractor loginInteractor = new LoginInteractor(profileDataAccess, loginPresenter);
+            LoginController loginController = new LoginController(loginInteractor);
 
-                CardLayout cardLayout = new CardLayout();
-                JPanel pages = new JPanel(cardLayout);
-                LoginView loginView = new LoginView(
+            CardLayout cardLayout = new CardLayout();
+            JPanel pages = new JPanel(cardLayout);
+            LoginView loginView = new LoginView(
                     loginController,
                     loginViewModel,
-                    () -> cardLayout.show(pages, PROFILE_CARD)
-                );
-                ProfileView profileView = new ProfileView(
+                    () -> cardLayout.show(pages, PROFILE_CARD));
+            ProfileView profileView = new ProfileView(
                     profileController,
-                    profileViewModel,
-                    () -> cardLayout.show(pages, LOGIN_CARD)
-                );
-                pages.add(loginView, LOGIN_CARD);
-                pages.add(profileView, PROFILE_CARD);
-                cardLayout.show(pages, LOGIN_CARD);
+                    profileViewModel, () -> cardLayout.show(pages, LOGIN_CARD)
+            );
+            pages.add(loginView, LOGIN_CARD);
+            pages.add(profileView, PROFILE_CARD);
+            cardLayout.show(pages, LOGIN_CARD);
 
-                JFrame window = new JFrame("Log in");
+            JFrame window = new JFrame("Log in");
             window.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                window.setContentPane(pages);
+            window.setContentPane(pages);
             window.addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowClosing(WindowEvent event) {
