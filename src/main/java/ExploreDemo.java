@@ -12,7 +12,9 @@ public class ExploreDemo {
             JFrame window = new JFrame("Explore Demo");
 
             window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
             window.setContentPane(new ExploreView());
+
             window.setSize(900, 600);
             window.setLocationRelativeTo(null);
             window.setVisible(true);

@@ -36,6 +36,7 @@ public class ExploreView extends JPanel {
 
     private int currentIndex = 0;
     private boolean profileOpened = false;
+    private boolean externalCandidate = false;
 
     private final JLabel picture;
     private final JLabel name;
@@ -94,21 +95,54 @@ public class ExploreView extends JPanel {
         // Button actions
         openButton.addActionListener(event -> toggleProfile());
 
+
         passButton.addActionListener(event -> {
+            if (externalCandidate) {
+                System.out.println("Pass requires matchmaking integration.");
+                return;
+            }
+
             System.out.println("Passed: " + candidates.get(currentIndex).getName());
             nextProfile();
         });
 
         likeButton.addActionListener(event -> {
+            if (externalCandidate) {
+                System.out.println("Like requires matchmaking integration.");
+                return;
+            }
+
             System.out.println("Liked: " + candidates.get(currentIndex).getName());
             nextProfile();
         });
+
 
         // Display the first candidate
         displayProfile();
     }
 
+    public void showCandidate(String displayName, int age,
+                              String bioExcerpt, String interestText,
+                              String distanceText) {
+        externalCandidate = true;
+
+        name.setText(displayName + ", " + age);
+        bio.setText(bioExcerpt);
+        interests.setText("<html><center>Interests: " + interestText
+                + "<br>" + distanceText + "</center></html>");
+
+        profileOpened = false;
+        openButton.setText("Open Profile");
+
+        openButton.setEnabled(true);
+        passButton.setEnabled(true);
+        likeButton.setEnabled(true);
+    }
+
+
     private void displayProfile() {
+        externalCandidate = false;
+
         ExploreState candidate = candidates.get(currentIndex);
 
         name.setText(candidate.getName() + ", " + candidate.getAge());
@@ -128,7 +162,10 @@ public class ExploreView extends JPanel {
         }
     }
 
-    private void displayEmptyFeed() {
+    public void displayEmptyFeed() {
+        profileOpened = false;
+        openButton.setText("Open Profile");
+
         name.setText("No more profiles available");
         bio.setText("");
         interests.setText("");
@@ -140,6 +177,11 @@ public class ExploreView extends JPanel {
     }
 
     private void toggleProfile() {
+        if (externalCandidate) {
+            System.out.println("Open Profile requires matchmaking integration.");
+            return;
+        }
+
         ExploreState candidate = candidates.get(currentIndex);
 
         profileOpened = !profileOpened;
