@@ -35,7 +35,7 @@ public class ProfileInteractor implements ProfileInputBoundary {
         }
 
         try {
-            Profile profile = createProfile(
+                Profile profile = new Profile(
                     username,
                     profileInputData.getPassword(),
                     profileInputData.getEmail(),
@@ -51,18 +51,4 @@ public class ProfileInteractor implements ProfileInputBoundary {
         }
     }
 
-    public Profile createProfile(String username, String password, String email, String phoneNumber)
-            throws InvalidUserIDException {
-        return new Profile(username, password, email, phoneNumber);
-    }
-
-    public Profile getProfile(String username) {
-        // TODO: retrieve the profile from storage.
-        return profileDataAccess.getProfile(username);
-    }
-
-    public void saveProfile(Profile profile) {
-        // TODO: persist the profile using the DAO interface.
-        profileDataAccess.saveProfile(profile);
-    }
 }

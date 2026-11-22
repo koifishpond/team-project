@@ -19,11 +19,6 @@ public class ProfileDataAccessObject implements ProfileDataAccessInterface, Logi
     }
 
     @Override
-    public Profile getProfileByUsername(String username) {
-        return profileDatabase.getProfile(username);
-    }
-
-    @Override
     public Profile getProfileByUserId(int userId) {
         return profileDatabase.getProfileByUserId(userId);
     }
@@ -53,8 +48,4 @@ public class ProfileDataAccessObject implements ProfileDataAccessInterface, Logi
         return profileDatabase.existsByPhoneNumber(phoneNumber);
     }
 
-    @Override
-    public void deleteProfile(String username) {
-        profileDatabase.deleteProfile(username);
-    }
 }

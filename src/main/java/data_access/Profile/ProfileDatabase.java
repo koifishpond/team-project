@@ -53,10 +53,6 @@ public class ProfileDatabase {
         return profilesByUsername.containsKey(username);
     }
 
-    public boolean existsByUserId(int userId) {
-        return profilesByUserId.containsKey(userId);
-    }
-
     public boolean existsByEmail(String email) {
         String normalizedEmail = normalizeEmail(email);
         return normalizedEmail != null && hasProfileWithEmail(email, null);
@@ -65,13 +61,6 @@ public class ProfileDatabase {
     public boolean existsByPhoneNumber(String phoneNumber) {
         String normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
         return normalizedPhoneNumber != null && hasProfileWithPhoneNumber(phoneNumber, null);
-    }
-
-    public void deleteProfile(String username) {
-        Profile profile = profilesByUsername.remove(username);
-        if (profile != null) {
-            profilesByUserId.remove(profile.getUserId(), profile);
-        }
     }
 
     private boolean hasProfileWithEmail(String email, Profile excludedProfile) {

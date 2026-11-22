@@ -23,7 +23,7 @@ public class LoginInteractor implements LoginInputBoundary {
             return;
         }
 
-        Profile profile = loginDataAccess.getProfileByUsername(username);
+        Profile profile = loginDataAccess.getProfile(username);
         if (profile == null || !Objects.equals(profile.getPassword(), password)) {
             loginOutputBoundary.prepareFailView("Invalid username or password.");
             return;
