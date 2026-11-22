@@ -1,16 +1,21 @@
 import data_access.Profile.ProfileDataAccessObject;
 import data_access.Profile.ProfileDatabase;
 import data_access.Profile.ProfileJsonFileStorage;
-import interface_adapter.Login.LoginController;
-import interface_adapter.Login.LoginPresenter;
-import interface_adapter.Login.LoginViewModel;
-import interface_adapter.Profile.ProfileController;
-import interface_adapter.Profile.ProfilePresenter;
-import interface_adapter.Profile.ProfileViewModel;
-import use_case.Login.LoginInteractor;
-import use_case.Profile.ProfileInteractor;
-import view.Login.LoginView;
-import view.Profile.ProfileView;
+import interface_adapter.Profile.Login.LoginController;
+import interface_adapter.Profile.Login.LoginPresenter;
+import interface_adapter.Profile.Login.LoginViewModel;
+import interface_adapter.Profile.CreateProfile.ProfileController;
+import interface_adapter.Profile.CreateProfile.ProfilePresenter;
+import interface_adapter.Profile.CreateProfile.ProfileViewModel;
+import interface_adapter.Profile.ResetPassword.ResetPasswordController;
+import interface_adapter.Profile.ResetPassword.ResetPasswordPresenter;
+import interface_adapter.Profile.ResetPassword.ResetPasswordViewModel;
+import use_case.Profile.Login.LoginInteractor;
+import use_case.Profile.CreateProfile.ProfileInteractor;
+import use_case.Profile.ResetPassword.ResetPasswordInteractor;
+import view.Profile.Login.LoginView;
+import view.Profile.CreateProfile.ProfileView;
+import view.Profile.ResetPassword.ResetPasswordView;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -27,6 +32,7 @@ public class Main {
     private static final Path PROFILE_SAVE_FILE = Path.of("profiles.json");
     private static final String LOGIN_CARD = "login";
     private static final String PROFILE_CARD = "profile";
+    private static final String RESET_PASSWORD_CARD = "reset-password";
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
@@ -53,18 +59,30 @@ public class Main {
             LoginInteractor loginInteractor = new LoginInteractor(profileDataAccess, loginPresenter);
             LoginController loginController = new LoginController(loginInteractor);
 
+                ResetPasswordViewModel resetPasswordViewModel = new ResetPasswordViewModel();
+                ResetPasswordPresenter resetPasswordPresenter = new ResetPasswordPresenter(resetPasswordViewModel);
+                ResetPasswordInteractor resetPasswordInteractor = new ResetPasswordInteractor(
+                    profileDataAccess, resetPasswordPresenter);
+                ResetPasswordController resetPasswordController = new ResetPasswordController(resetPasswordInteractor);
+
             CardLayout cardLayout = new CardLayout();
             JPanel pages = new JPanel(cardLayout);
             LoginView loginView = new LoginView(
                     loginController,
                     loginViewModel,
-                    () -> cardLayout.show(pages, PROFILE_CARD));
+                    () -> cardLayout.show(pages, PROFILE_CARD),
+                    () -> cardLayout.show(pages, RESET_PASSWORD_CARD));
             ProfileView profileView = new ProfileView(
                     profileController,
                     profileViewModel, () -> cardLayout.show(pages, LOGIN_CARD)
             );
+                ResetPasswordView resetPasswordView = new ResetPasswordView(
+                    resetPasswordController,
+                    resetPasswordViewModel,
+                    () -> cardLayout.show(pages, LOGIN_CARD));
             pages.add(loginView, LOGIN_CARD);
             pages.add(profileView, PROFILE_CARD);
+                pages.add(resetPasswordView, RESET_PASSWORD_CARD);
             cardLayout.show(pages, LOGIN_CARD);
 
             JFrame window = new JFrame("Log in");

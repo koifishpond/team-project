@@ -1,7 +1,7 @@
 package data_access.Profile;
 
 import entity.Profile;
-import use_case.Login.LoginDataAccessInterface;
+import use_case.Profile.Login.LoginDataAccessInterface;
 import use_case.Profile.ProfileDataAccessInterface;
 
 import java.util.List;
