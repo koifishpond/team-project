@@ -21,6 +21,21 @@ public class ProfileInteractor implements ProfileInputBoundary {
             profileOutputBoundary.prepareFailView("Username cannot be empty.");
             return;
         }
+        String password = profileInputData.getPassword();
+        if (password == null || password.trim().isEmpty()) {
+            profileOutputBoundary.prepareFailView("Password cannot be empty.");
+            return;
+        }
+        String email = profileInputData.getEmail();
+        if (email == null || !email.contains("@")) {
+            profileOutputBoundary.prepareFailView("Email must contain an @ symbol.");
+            return;
+        }
+        String phoneNumber = profileInputData.getPhoneNumber();
+        if (phoneNumber == null || !phoneNumber.matches("[0-9]{10}")) {
+            profileOutputBoundary.prepareFailView("Phone number must contain exactly 10 digits.");
+            return;
+        }
         if (profileDataAccess.existsByUsername(username)) {
             profileOutputBoundary.prepareFailView("Username already exists.");
             return;
@@ -37,9 +52,9 @@ public class ProfileInteractor implements ProfileInputBoundary {
         try {
                 Profile profile = new Profile(
                     username,
-                    profileInputData.getPassword(),
-                    profileInputData.getEmail(),
-                    profileInputData.getPhoneNumber()
+                    password,
+                    email,
+                    phoneNumber
             );
 
             profileDataAccess.saveProfile(profile);
