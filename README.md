@@ -44,7 +44,6 @@ The readme should include information such as:
 | --- | --- | --- | --- |
 | MM-1 | As a user, I want to receive a recommended profile that satisfies both mine and a potential partner's preferences and deal-breakers, so that I can find a potential match without browsing unsuitable profiles. | MVP: deterministic candidate selection and a displayed preview. | Mike Chen |
 | MM-2 | As a user, I want future recommendations to reflect the profiles I like, pass or explicitly dislike so that the feed becomes more relevant to me. | Later: feedback-based personalization, including stronger positive feedback from confirmed matches. | Mike Chen |
-| MM-3 | As a user, I want to chat with someone I've matched with, so that we can communicate through text after matching. | MVP: open matched user's conversation, view saved messages, send non-empty text; current matches come from a temporary seeded demo fixture, not a matching or like engine. | Raymond |
 
 ### Use case: Receive a potential-match recommendation
 
@@ -119,11 +118,17 @@ The readme should include information such as:
 - A user cannot start or continue a chat with someone they have unmatched or blocked, or who has unmatched or blocked them.
 - Blocks are stored.
 - The list shows an empty state when there are no matches, Swing interface remains responsive.
+
+| ID | User story | Scope | Lead |
+| --- | --- | --- | --- |
+| MM-1 | As a user, I want to receive and view messages from someone I've matched with, so that I can read our conversation. | MVP: open an active match's conversation and view saved messages in chronological order from the temporary seeded demo fixture. | Raymond |
+| MM-2 | As a user, I want to send text messages to someone I've matched with, so that we can communicate through text. | MVP: send non-empty text in an active match's conversation and save it locally for reload; no networking or real-time messaging. | Raymond |
+
 ### Use case: Chat with a matched user
 
-**Related story:** MM-3
+**Related stories:** MM-1, MM-2
 
-**Primary actor:** Signed-in user
+**Primary actor:** Signed-in user with an active match
 
 **Lead:** Raymond
 
