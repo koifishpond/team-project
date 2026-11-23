@@ -1,5 +1,10 @@
-
 package view.Explore;
+
+import javax.swing.JOptionPane;
+
+import java.util.function.Consumer;
+
+import interface_adapter.discovery.DiscoveryViewModel;
 
 import interface_adapter.Explore.ExploreState;
 
@@ -46,6 +51,8 @@ public class ExploreView extends JPanel {
     private final JButton openButton;
     private final JButton passButton;
     private final JButton likeButton;
+
+    private Consumer<String> interactionListener;
 
     public ExploreView() {
         setLayout(new BorderLayout(10, 10));
@@ -98,7 +105,9 @@ public class ExploreView extends JPanel {
 
         passButton.addActionListener(event -> {
             if (externalCandidate) {
-                System.out.println("Pass requires matchmaking integration.");
+                if (interactionListener != null) {
+                    interactionListener.accept("PASS");
+                }
                 return;
             }
 
@@ -108,7 +117,9 @@ public class ExploreView extends JPanel {
 
         likeButton.addActionListener(event -> {
             if (externalCandidate) {
-                System.out.println("Like requires matchmaking integration.");
+                if (interactionListener != null) {
+                    interactionListener.accept("LIKE");
+                }
                 return;
             }
 
@@ -139,6 +150,21 @@ public class ExploreView extends JPanel {
         likeButton.setEnabled(true);
     }
 
+    public void displayDiscoveryResult(DiscoveryViewModel model) {
+        if (model.getCard().isPresent()) {
+            DiscoveryViewModel.Card card = model.getCard().get();
+
+            showCandidate(
+                    card.getDisplayName(),
+                    card.getAgeYears(),
+                    card.getBioExcerpt().orElse("No bio available"),
+                    String.join(", ", card.getInterestLabels()),
+                    card.getDistanceLabel().orElse("Distance unavailable")
+            );
+        } else {
+            displayEmptyFeed();
+        }
+    }
 
     private void displayProfile() {
         externalCandidate = false;
@@ -178,7 +204,9 @@ public class ExploreView extends JPanel {
 
     private void toggleProfile() {
         if (externalCandidate) {
-            System.out.println("Open Profile requires matchmaking integration.");
+            if (interactionListener != null) {
+                interactionListener.accept("OPEN_PROFILE");
+            }
             return;
         }
 
@@ -196,4 +224,27 @@ public class ExploreView extends JPanel {
             openButton.setText("Open Profile");
         }
     }
+
+    public void setInteractionListener(Consumer<String> listener) {
+        this.interactionListener = listener;
+    }
+
+    public void showFullProfile(String displayName, int age,
+                                String bio, String area,
+                                String interests) {
+
+        String details =
+                displayName + ", " + age
+                        + "\n\nBio: " + bio
+                        + "\n\nLocation: " + area
+                        + "\n\nInterests: " + interests;
+
+        JOptionPane.showMessageDialog(
+                this,
+                details,
+                "Full Profile",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+    }
+
 }
