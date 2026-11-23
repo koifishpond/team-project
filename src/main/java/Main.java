@@ -12,20 +12,21 @@ import javax.swing.SwingUtilities;
 import data_access.Profile.ProfileDataAccessObject;
 import data_access.Profile.ProfileDatabase;
 import data_access.Profile.ProfileJsonFileStorage;
-import interface_adapter.Profile.Login.LoginController;
-import interface_adapter.Profile.Login.LoginPresenter;
-import interface_adapter.Profile.Login.LoginViewModel;
 import interface_adapter.Profile.CreateProfile.ProfileController;
 import interface_adapter.Profile.CreateProfile.ProfilePresenter;
 import interface_adapter.Profile.CreateProfile.ProfileViewModel;
+import interface_adapter.Profile.Login.LoginController;
+import interface_adapter.Profile.Login.LoginPresenter;
+import interface_adapter.Profile.Login.LoginToken;
+import interface_adapter.Profile.Login.LoginViewModel;
 import interface_adapter.Profile.ResetPassword.ResetPasswordController;
 import interface_adapter.Profile.ResetPassword.ResetPasswordPresenter;
 import interface_adapter.Profile.ResetPassword.ResetPasswordViewModel;
-import use_case.Profile.Login.LoginInteractor;
 import use_case.Profile.CreateProfile.ProfileInteractor;
+import use_case.Profile.Login.LoginInteractor;
 import use_case.Profile.ResetPassword.ResetPasswordInteractor;
-import view.Profile.Login.LoginView;
 import view.Profile.CreateProfile.ProfileView;
+import view.Profile.Login.LoginView;
 import view.Profile.ResetPassword.ResetPasswordView;
 
 public class Main {
@@ -55,7 +56,8 @@ public class Main {
             ProfileController profileController = new ProfileController(profileInteractor);
 
             LoginViewModel loginViewModel = new LoginViewModel();
-            LoginPresenter loginPresenter = new LoginPresenter(loginViewModel);
+            LoginToken loginToken = new LoginToken();
+            LoginPresenter loginPresenter = new LoginPresenter(loginViewModel, loginToken);
             LoginInteractor loginInteractor = new LoginInteractor(profileDataAccess, loginPresenter);
             LoginController loginController = new LoginController(loginInteractor);
 

@@ -1,8 +1,8 @@
 package use_case.Profile.Login;
 
-import entity.Profile;
-
 import java.util.Objects;
+
+import entity.Profile;
 
 public class LoginInteractor implements LoginInputBoundary {
     private final LoginDataAccessInterface loginDataAccess;
@@ -29,6 +29,7 @@ public class LoginInteractor implements LoginInputBoundary {
             return;
         }
 
-        loginOutputBoundary.prepareSuccessView(new LoginOutputData(profile.getUsername()));
+        loginOutputBoundary.prepareSuccessView(
+            new LoginOutputData(profile.getUsername(), profile.getUserId()));
     }
 }
