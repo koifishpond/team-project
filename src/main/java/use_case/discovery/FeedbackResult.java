@@ -1,0 +1,3 @@
+package use_case.discovery;
+
+public enum FeedbackResult { APPLIED, DUPLICATE, PENDING, REJECTED, PREVIEW_UNAVAILABLE, SESSION_EXPIRED, RETRYABLE_FAILURE }

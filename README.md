@@ -44,6 +44,7 @@ The readme should include information such as:
 | --- | --- | --- | --- |
 | MM-1 | As a user, I want to receive a recommended profile that satisfies both mine and a potential partner's preferences and deal-breakers, so that I can find a potential match without browsing unsuitable profiles. | MVP: deterministic candidate selection and a displayed preview. | Mike Chen |
 | MM-2 | As a user, I want future recommendations to reflect the profiles I like, pass or explicitly dislike so that the feed becomes more relevant to me. | Later: feedback-based personalization, including stronger positive feedback from confirmed matches. | Mike Chen |
+| MM-3 | As a user, I want to chat with someone I've matched with, so that we can communicate through text after matching. | MVP: open matched user's conversation, view saved messages, send non-empty text; current matches come from a temporary seeded demo fixture, not a matching or like engine. | Raymond |
 
 ### Use case: Receive a potential-match recommendation
 
@@ -118,3 +119,34 @@ The readme should include information such as:
 - A user cannot start or continue a chat with someone they have unmatched or blocked, or who has unmatched or blocked them.
 - Blocks are stored.
 - The list shows an empty state when there are no matches, Swing interface remains responsive.
+### Use case: Chat with a matched user
+
+**Related story:** MM-3
+
+**Primary actor:** Signed-in user
+
+**Lead:** Raymond
+
+**Preconditions:** The user is signed in and has an active match in the temporary seeded demo fixture.
+
+**Trigger:** The user opens the conversation for a matched user.
+
+**Success outcome:** The user can view the conversation's saved messages in chronological order and send a non-empty text message that is saved locally and reloadable.
+
+**Main success scenario**
+
+1. The user selects an active match and opens that matched user's conversation.
+2. The system verifies that the selected match is active; access is denied for inactive or unknown matches.
+3. The system loads the conversation's saved messages and presents them in chronological order.
+4. The user enters text and submits the message.
+5. The system rejects an empty or whitespace-only message and shows a meaningful validation error.
+6. The system saves a valid non-empty message locally and reloads it in the conversation history.
+
+**MVP acceptance criteria**
+
+- The conversation is available only for active matches from the temporary seeded demo fixture; inactive and unknown matches cannot be opened.
+- Saved messages are displayed in chronological order after save and reload.
+- Empty and whitespace-only messages are rejected without being saved.
+- Sent messages are saved locally and remain available after the application is reloaded.
+- Invalid match access and message-save failures produce meaningful errors.
+- The feature does not claim to provide networking or real-time messaging.
