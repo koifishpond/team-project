@@ -1,4 +1,4 @@
-package interface_adapter.Profile;
+package interface_adapter.Profile.CreateProfile;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;

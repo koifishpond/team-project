@@ -1,7 +1,8 @@
-package use_case.Profile;
+package use_case.Profile.CreateProfile;
 
 import entity.InvalidUserIDException;
 import entity.Profile;
+import use_case.Profile.ProfileDataAccessInterface;
 
 public class ProfileInteractor implements ProfileInputBoundary {
     private final ProfileDataAccessInterface profileDataAccess;
@@ -20,6 +21,21 @@ public class ProfileInteractor implements ProfileInputBoundary {
             profileOutputBoundary.prepareFailView("Username cannot be empty.");
             return;
         }
+        String password = profileInputData.getPassword();
+        if (password == null || password.trim().isEmpty()) {
+            profileOutputBoundary.prepareFailView("Password cannot be empty.");
+            return;
+        }
+        String email = profileInputData.getEmail();
+        if (email == null || !email.contains("@")) {
+            profileOutputBoundary.prepareFailView("Email must contain an @ symbol.");
+            return;
+        }
+        String phoneNumber = profileInputData.getPhoneNumber();
+        if (phoneNumber == null || !phoneNumber.matches("[0-9]{10}")) {
+            profileOutputBoundary.prepareFailView("Phone number must contain exactly 10 digits.");
+            return;
+        }
         if (profileDataAccess.existsByUsername(username)) {
             profileOutputBoundary.prepareFailView("Username already exists.");
             return;
@@ -34,11 +50,11 @@ public class ProfileInteractor implements ProfileInputBoundary {
         }
 
         try {
-            Profile profile = createProfile(
+                Profile profile = new Profile(
                     username,
-                    profileInputData.getPassword(),
-                    profileInputData.getEmail(),
-                    profileInputData.getPhoneNumber()
+                    password,
+                    email,
+                    phoneNumber
             );
 
             profileDataAccess.saveProfile(profile);
@@ -50,18 +66,4 @@ public class ProfileInteractor implements ProfileInputBoundary {
         }
     }
 
-    public Profile createProfile(String username, String password, String email, String phoneNumber)
-            throws InvalidUserIDException {
-        return new Profile(username, password, email, phoneNumber);
-    }
-
-    public Profile getProfile(String username) {
-        // TODO: retrieve the profile from storage.
-        return profileDataAccess.getProfile(username);
-    }
-
-    public void saveProfile(Profile profile) {
-        // TODO: persist the profile using the DAO interface.
-        profileDataAccess.saveProfile(profile);
-    }
 }

@@ -9,13 +9,13 @@ The readme should include information such as:
 ### User stories
 | ID | User story | Scope | Lead |
 | --- | --- | --- | --- |
-| MM-1 |As a user, I want to be able to register and create a new account Using my own username, password, email, and phone number, so that I can use the dating app with a private account| MVP a Create Account screen that takes in username, password, email, and phone as input and stores it in a database| Simba Zhou| 
-| MM-2 |As a user, I want to be able to login to the account that I have created so that I can access the services that the dating app provides| MVP a Login screen that takes in username and password as input and verifies if the password and username match the one stored in the database| Simba Zhou| 
-| MM-3 |As a user, I want to be able to retrieve access to my account if I forget my login credentials, so that I can still access my account| MVP a Reset Password screen that takes in username and phone number as input, checks if they match in the database; and if they do, allow the user to input a new password | Simba Zhou| 
+| PC-1 |As a user, I want to be able to register and create a new account Using my own username, password, email, and phone number, so that I can use the dating app with a private account| MVP a Create Account screen that takes in username, password, email, and phone as input and stores it in a database| Simba Zhou| 
+| PC-2 |As a user, I want to be able to login to the account that I have created so that I can access the services that the dating app provides| MVP a Login screen that takes in username and password as input and verifies if the password and username match the one stored in the database| Simba Zhou| 
+| PC-3 |As a user, I want to be able to retrieve access to my account if I forget my login credentials, so that I can still access my account| MVP a Reset Password screen that takes in username and phone number as input, checks if they match in the database; and if they do, allow the user to input a new password | Simba Zhou| 
 
 ### Use case: Create a new Profile
 
-**Related story:** MM-1
+**Related story:** PC-1
 
 **Primary actor:** User without an associated profile
 

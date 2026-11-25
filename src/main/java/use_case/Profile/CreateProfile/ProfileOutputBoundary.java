@@ -1,4 +1,4 @@
-package use_case.Profile;
+package use_case.Profile.CreateProfile;
 
 public interface ProfileOutputBoundary {
     void prepareSuccessView(ProfileOutputData profileOutputData);

@@ -1,7 +1,7 @@
-package interface_adapter.Profile;
+package interface_adapter.Profile.CreateProfile;
 
-import use_case.Profile.ProfileOutputBoundary;
-import use_case.Profile.ProfileOutputData;
+import use_case.Profile.CreateProfile.ProfileOutputBoundary;
+import use_case.Profile.CreateProfile.ProfileOutputData;
 
 public class ProfilePresenter implements ProfileOutputBoundary {
     private final ProfileViewModel profileViewModel;

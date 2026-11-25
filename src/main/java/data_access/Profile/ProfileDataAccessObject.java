@@ -1,11 +1,12 @@
 package data_access.Profile;
 
 import entity.Profile;
+import use_case.Profile.Login.LoginDataAccessInterface;
 import use_case.Profile.ProfileDataAccessInterface;
 
 import java.util.List;
 
-public class ProfileDataAccessObject implements ProfileDataAccessInterface {
+public class ProfileDataAccessObject implements ProfileDataAccessInterface, LoginDataAccessInterface {
     private final ProfileDatabase profileDatabase;
 
     public ProfileDataAccessObject(ProfileDatabase profileDatabase) {
@@ -47,8 +48,4 @@ public class ProfileDataAccessObject implements ProfileDataAccessInterface {
         return profileDatabase.existsByPhoneNumber(phoneNumber);
     }
 
-    @Override
-    public void deleteProfile(String username) {
-        profileDatabase.deleteProfile(username);
-    }
 }
