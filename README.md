@@ -73,16 +73,16 @@ The readme should include information such as:
 - Ranking is viewer-oriented and deterministic; equal scores use a stable profile-ID tie-breaker. Missing optional fields have defined fallbacks.
 - The request produces one preview, an empty-feed result or an actionable error. The Swing interface remains responsive.
 
- ID | User story | Scope | Lead |
+| ID | User story | Scope | Lead |
 | --- | --- | --- | --- |
-| RM-1 | As a user, I want want to see the list of the people I have matched with so I can choose how to talk to. | MVP: a Matches screen listing active matches (display name, photo, or placeholder and matchdate), with an empty state when there are no matches | Sarah Aslam |
-| RM-2 | As a user, I want to open a conversation with one of my matches so that I can start or continue talking | MVP: selecting a match opens the chat log | Sarah Aslam |
-| RM-2 | As a user, I want to unmatch someone, so that they no longer appear in my matches. | MVP: an unamatch control with a confirmation step. The match is removed for both users | Sarah Aslam |
-| RM-2 | As a user, I want to block someone so that they may never be able to contact me again. | MVP: A block control with a confirmation step; block is stored and respected | Sarah Aslam |
+| RM-1 | As a user, I want to see the list of the people I have matched with, so that I can choose who to talk to. | MVP: a Matches screen listing active matches (display name, photo or placeholder, and match date), with an empty state when there are no matches | Sarah Aslam |
+| RM-2 | As a user, I want to open a conversation with one of my matches, so that I can start or continue talking. | MVP: selecting a match opens the chat log | Sarah Aslam |
+| RM-3 | As a user, I want to unmatch someone, so that they no longer appear in my matches. | MVP: an unmatch control with a confirmation step; the match is removed for both users | Sarah Aslam |
+| RM-4 | As a user, I want to block someone, so that they can never contact me again. | MVP: a block control with a confirmation step; the block is stored and respected | Sarah Aslam |
 
 ### Use Case: Review and Manage Matches
 
-**Related Stories:** RM-1, RM-2, RM-2, RM-3, RM - 3
+**Related Stories:** RM-1, RM-2, RM-3, RM-4
 
 **Primary Actor:** Signed-in user with at least one match
 
@@ -96,25 +96,25 @@ The readme should include information such as:
 
 **Main Success Scenario**
 1. The user opens the Matches screen.
-2. The system loads the users active matches, not including anyone that is unmatched or blocked (by either user).
-3. The system displays each match's display name, profile photo and match date (ORDER TBD).
+2. The system loads the user's active matches, not including anyone that is unmatched or blocked (by either user).
+3. The system displays each match's display name, profile photo and match date, newest first.
 4. The user selects a match and chooses to open the conversation.
 5. The system opens their chat log which shows previous message history.
 
 **Extensions**
 - 2a. The user has no active matches - an empty state ("No matches yet") is displayed.
 - 4a. The user chooses Unmatch:
-  - system asks user to conform
+  - system asks user to confirm
   - system ends match for both users and removes from both match lists
-  - neither users can send new messages in that conversation.
 - 4b. The user chooses Block
-  - system records block for both users and removes from both match lists
-  - neither users can send new messages in that conversation.
+    - system asks user to confirm.
+    - system records block for both users and removes from both match lists
+    - neither users can send new messages in that conversation.
 - 4c. The match was ended by another user while the list was open: the system shows a message and list is refreshed.
 
 **MVP acceptance criteria**
-- Only active matches appear; unmatches and blocked users never do. 
-- Unmatch and block need confirmation to take affect.
+- Only active matches appear; unmatched and blocked users never do. 
+- Unmatch and block need confirmation to take effect.
 - A user cannot start or continue a chat with someone they have unmatched or blocked, or who has unmatched or blocked them.
 - Blocks are stored.
 - The list shows an empty state when there are no matches, Swing interface remains responsive.
