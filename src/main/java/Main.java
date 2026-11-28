@@ -26,12 +26,14 @@ import use_case.Profile.CreateProfile.ProfileInteractor;
 import use_case.Profile.Login.LoginInteractor;
 import use_case.Profile.ResetPassword.ResetPasswordInteractor;
 import view.Profile.CreateProfile.ProfileView;
+import view.Profile.Home.ProfileHomeView;
 import view.Profile.Login.LoginView;
 import view.Profile.ResetPassword.ResetPasswordView;
 
 public class Main {
     private static final Path PROFILE_SAVE_FILE = Path.of("profiles.json");
     private static final String LOGIN_CARD = "login";
+    private static final String HOME_CARD = "home";
     private static final String PROFILE_CARD = "profile";
     private static final String RESET_PASSWORD_CARD = "reset-password";
 
@@ -74,6 +76,7 @@ public class Main {
                     loginViewModel,
                     () -> cardLayout.show(pages, PROFILE_CARD),
                     () -> cardLayout.show(pages, RESET_PASSWORD_CARD));
+                    ProfileHomeView profileHomeView = new ProfileHomeView(section -> { });
             ProfileView profileView = new ProfileView(
                     profileController,
                     profileViewModel, () -> cardLayout.show(pages, LOGIN_CARD)
@@ -83,8 +86,14 @@ public class Main {
                     resetPasswordViewModel,
                     () -> cardLayout.show(pages, LOGIN_CARD));
             pages.add(loginView, LOGIN_CARD);
+            pages.add(profileHomeView, HOME_CARD);
             pages.add(profileView, PROFILE_CARD);
             pages.add(resetPasswordView, RESET_PASSWORD_CARD);
+            loginViewModel.addPropertyChangeListener(event -> {
+                if (loginViewModel.getState().isSuccess()) {
+                    cardLayout.show(pages, HOME_CARD);
+                }
+            });
             cardLayout.show(pages, LOGIN_CARD);
 
             JFrame window = new JFrame("Log in");

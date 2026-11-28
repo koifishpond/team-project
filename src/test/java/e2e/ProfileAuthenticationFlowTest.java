@@ -30,6 +30,7 @@ import interface_adapter.Profile.Login.LoginViewModel;
 import use_case.Profile.CreateProfile.ProfileInteractor;
 import use_case.Profile.Login.LoginInteractor;
 import view.Profile.CreateProfile.ProfileView;
+import view.Profile.Home.ProfileHomeView;
 import view.Profile.Login.LoginView;
 
 class ProfileAuthenticationFlowTest {
@@ -69,6 +70,7 @@ class ProfileAuthenticationFlowTest {
 
         CardLayout cardLayout = new CardLayout();
         JPanel pages = new JPanel(cardLayout);
+        ProfileHomeView profileHomeView = new ProfileHomeView(section -> { });
         ProfileView profileView = new ProfileView(
                 profileController, profileViewModel, () -> cardLayout.show(pages, "login"));
         LoginView loginView = new LoginView(
@@ -77,7 +79,13 @@ class ProfileAuthenticationFlowTest {
                 () -> cardLayout.show(pages, "create-profile"),
                 () -> { });
         pages.add(loginView, "login");
+        pages.add(profileHomeView, "home");
         pages.add(profileView, "create-profile");
+        loginViewModel.addPropertyChangeListener(event -> {
+            if (loginViewModel.getState().isSuccess()) {
+                cardLayout.show(pages, "home");
+            }
+        });
         cardLayout.show(pages, "login");
 
         clickButton(loginView, "Create profile");
@@ -101,6 +109,11 @@ class ProfileAuthenticationFlowTest {
 
         assertTrue(loginViewModel.getState().isSuccess());
         assertEquals(database.getProfile("alice").getUserId(), loginToken.getUserId());
+        assertTrue(profileHomeView.isVisible());
+        List<JButton> homeButtons = findComponents(profileHomeView, JButton.class);
+        assertEquals("Texting", homeButtons.get(0).getText());
+        assertEquals("Matching", homeButtons.get(1).getText());
+        assertEquals("Edit Preference", homeButtons.get(2).getText());
     }
 
     private void clickButton(Container container, String text) {
